@@ -11,6 +11,10 @@ import { SequenceLabelingApplicationService } from '@/services/application/tasks
 import { UserApplicationService } from '~/services/application/user/userAplicationService'
 import { ApiPerspectiveRepository } from '@/repositories/perspective/apiPerspectiveRepository'
 import { PerspectiveApplicationService } from '@/services/application/perspective/perspectiveApplicationService'
+
+import { DiscrepacieApplicationService } from '@/services/application/descrepancys/discrepanciesApplicationService'
+// Update with perspective property
+
 import { AnnotationApplicationService } from '@/services/application/annotation/annotationApplicationService'
 
 export interface Services {
@@ -25,8 +29,12 @@ export interface Services {
   tag: TagApplicationService
   bbox: BoundingBoxApplicationService
   segmentation: SegmentationApplicationService
-  perspective: PerspectiveApplicationService
+
+  perspective: PerspectiveApplicationService 
+  discrepancy: DiscrepacieApplicationService
+
   annotation: AnnotationApplicationService
+
 }
 
 declare module 'vue/types/vue' {
@@ -53,7 +61,9 @@ const plugin: Plugin = (_, inject) => {
     bbox: new BoundingBoxApplicationService(repositories.boundingBox),
     segmentation: new SegmentationApplicationService(repositories.segmentation),
     user: new UserApplicationService(repositories.user),
-    perspective: new PerspectiveApplicationService(repositories.perspective),
+
+    perspective: new PerspectiveApplicationService(repositories.perspective), // Add this line
+    discrepancy: new DiscrepacieApplicationService(repositories.discrepancy), // Add this line
     annotation: new AnnotationApplicationService(repositories.annotation)
   }
   inject('services', services)

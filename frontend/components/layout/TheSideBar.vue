@@ -37,7 +37,9 @@ import {
   mdiDatabase,
   mdiHome,
   mdiLabel,
-  mdiPlayCircleOutline
+  mdiPlayCircleOutline,
+  mdiViewDashboard,
+  mdiAlertCircleOutline
 } from '@mdi/js'
 import { getLinkToAnnotationPage } from '~/presenter/linkToAnnotationPage'
 
@@ -119,7 +121,7 @@ export default {
         },
 
         {
-          icon: mdiDatabase,
+          icon: mdiViewDashboard,
           text: 'Perspetivas',
           link: 'perspectives',
           isVisible: this.isProjectAdmin
@@ -130,6 +132,12 @@ export default {
           text: 'Perspetivas',
           link: 'perspectives',
           isVisible: !this.isProjectAdmin// modificar
+        },
+        {
+          icon: mdiAlertCircleOutline,
+          text: 'Discrepâncias',
+          link: 'discrepancies',
+          isVisible: this.isProjectAdmin
         },
 
         {
