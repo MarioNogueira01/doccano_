@@ -161,63 +161,24 @@
 
     <!-- Data Table -->
     <v-data-table
-      :headers="headers"
-      :items="filteredDiscrepancies"
-      :search="search"
-      :loading="loading"
-      :items-per-page="10"
-      class="elevation-1"
+     :headers="headers"
+     :items="flattenedDiscrepancies"
+     :search="search"
+     :loading="loading"
+     :items-per-page="10"
+     class="elevation-1"
     >
-      <template #[`item.text`]="{ item }">
-        <div class="text-truncate" style="max-width: 300px;">
-          {{ item.text }}
-        </div>
-      </template>
-
-      <template #[`item.labels`]="{ item }">
-        <v-simple-table dense class="dataset-table">
-          <template #default>
-            <thead>
-              <tr>
-                <th class="dataset-header">Dataset Label</th>
-                <th class="dataset-header">Percentage</th>
-                <th class="dataset-header">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(percentage, label) in sortedPercentages(item.percentages)" 
-              :key="label" class="dataset-row">
-                <td class="dataset-cell">{{ label }}</td>
-                <td class="dataset-cell">{{ percentage.toFixed(2) }}%</td>
-                <td class="dataset-cell">
-                  <v-chip
-                    :color="percentage >= 70 ? 'success' : 'error'"
-                    small
-                    class="status-chip"
-                  >
-                    {{ percentage >= 70 ? 'Agreement' : 'Disagreement' }}
-                  </v-chip>
-                </td>
-              </tr>
-            </tbody>
-          </template>
-        </v-simple-table>
-      </template>
-
-      <template #[`item.is_discrepancy`]="{ item }">
+      <template #[`item.status`]="{ item }">
         <v-chip
-          :color="item.is_discrepancy ? 'error' : 'success'"
-          small
-          class="status-chip"
+          :color="item.status === 'Agreement' ? 'success' : 'error'"
+          x-small
+          dark
         >
-          {{ item.is_discrepancy ? 'Disagreement' : 'Agreement' }}
-        </v-chip>
-      </template>
+        {{ item.status }}
+    </v-chip>
+  </template>
+</v-data-table>
 
-      <template #[`item.max_percentage`]="{ item }">
-        <span class="percentage-value">{{ item.max_percentage.toFixed(2) }}%</span>
-      </template>
-    </v-data-table>
 
     <!-- Snackbars -->
     <v-snackbar v-model="snackbar" timeout="3000" top color="success">
@@ -256,12 +217,13 @@ export default {
       loading: true,
       sortOrder: 'desc',
       search: '',
-      headers: [
-        { text: 'Text', value: 'text', sortable: true },
-        { text: 'Dataset Labels', value: 'labels', sortable: false },
-        { text: 'Overall Status', value: 'is_discrepancy', sortable: true },
-        { text: 'Max Percentage', value: 'max_percentage', sortable: true }
-      ]
+     headers: [
+      { text: 'Text', value: 'text', sortable: false },
+      { text: 'Label', value: 'label', sortable: false },
+      { text: 'Percentagem', value: 'percentage', sortable: true },
+      { text: 'Status', value: 'status', sortable: false }
+    ]
+
     };
   },
 
@@ -269,6 +231,20 @@ export default {
     projectId() {
       return this.$route.params.id;
     },
+
+    flattenedDiscrepancies() {
+      return this.filteredDiscrepancies.flatMap(item => {
+        return Object.entries(item.percentages).map(([label, percentage]) => {
+          return {
+            text: item.text,
+            label,
+            percentage: percentage.toFixed(2),
+            status: percentage >= 70 ? 'Agreement' : 'Disagreement'
+          };
+      });
+    });
+  },
+
     sortedDiscrepancies() {
       return [...this.discrepancies].sort((a, b) => {
         return this.sortOrder === 'asc' ? a.max_percentage - b.max_percentage : 
