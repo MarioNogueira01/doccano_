@@ -68,9 +68,10 @@ import {
   mdiHome,
   mdiLabel,
   mdiPlayCircleOutline,
-  mdiHistory,
   mdiViewDashboard,
   mdiAlertCircleOutline,
+
+  mdiHistory,
   mdiChartPie,
   mdiChartBox
 } from '@mdi/js'
@@ -152,6 +153,14 @@ export default {
           link: 'metrics',
           isVisible: this.isProjectAdmin
         },
+
+        {
+          icon: mdiHistory,
+          text: 'History of Annotations',
+          link: 'annotation-history',
+          isVisible: true
+        },
+
         {
           icon: mdiViewDashboard,
           text: 'Perspetivas',
@@ -172,11 +181,20 @@ export default {
         },
         // Remova os itens individuais e insira o único item dropdown "Relatórios"
         {
+
           icon: mdiChartBox,
           text: 'Relatórios',
           link: 'rulesReports',
           isVisible: true
         },
+        {
+          icon: mdiDatabase,
+          text: 'Discrepâncias',
+          link: 'discrepancies',
+          isVisible: true
+        },
+
+
         {
           icon: mdiCog,
           text: this.$t('settings.title'),
@@ -204,6 +222,12 @@ export default {
           icon: mdiChartPie,
           text: 'Annotation Distribution',
           link: 'annotation-distribution',
+          isVisible: true
+        },
+        {
+          icon: mdiChartBar,
+          text: 'Estatísticas do Histórico',
+          link: 'history-stats',
           isVisible: true
         }
       ]
