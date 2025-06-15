@@ -27,19 +27,12 @@
         </v-btn>
       </v-card-title>
 
-      <!-- ✅ Mensagem de erro com transição fade -->
+      <!-- ✅ Mensagem de erro como pop-up central superior -->
       <transition name="fade">
-        <v-alert
-          v-if="errorMessage"
-          type="error"
-          class="ma-4"
-          elevation="2"
-          style="background-color: #fdecea; color: #b71c1c; border-left: 4px solid #b71c1c;"
-          dense
-        >
-          <v-icon left color="error">mdi-alert-circle</v-icon>
+        <div v-if="errorMessage" class="error-message">
+          <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
           {{ errorMessage }}
-        </v-alert>
+        </div>
       </transition>
 
       <!-- ✅ Mensagem de sucesso com transição fade -->
@@ -158,6 +151,9 @@ export default Vue.extend({
     },
     hasSelectedUserWithProjects() {
       return this.selected.some(user => this.usersWithProjects.includes(user.id))
+    },
+    selectedUser() {
+      return this.selected.length === 1 ? this.selected[0] : null
     }
   },
 
@@ -258,6 +254,11 @@ export default Vue.extend({
       // Recarrega a lista
       this.$fetch()
 
+      // Mensagem de sucesso
+      this.successMessage = 'Utilizador atualizado com sucesso.'
+      this.showSnackbar = true
+      setTimeout(() => (this.showSnackbar = false), 3000)
+
       // Se for o user logado que foi editado, forçamos logout (opcional)
       if (this.selectedUser && this.selectedUser.id === this.getUserId) {
         console.log('Editaste o teu próprio perfil -> logout automático...')
@@ -267,6 +268,12 @@ export default Vue.extend({
 
     onEditCancel() {
       this.dialogEdit = false
+    },
+
+    edit() {
+      if (this.canEdit) {
+        this.dialogEdit = true
+      }
     }
   }
 })
@@ -274,15 +281,20 @@ export default Vue.extend({
 
 <style scoped>
 .success-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
   background-color: #e6f4ea;
   color: #2e7d32;
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin: 16px;
+  padding: 12px 24px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   font-weight: 500;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
 }
 
 /* Fade para o snackbar */
@@ -293,5 +305,22 @@ export default Vue.extend({
 .fade-enter,
 .fade-leave-to {
   opacity: 0;
+}
+
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #fdecea;
+  color: #b71c1c;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
 }
 </style>
