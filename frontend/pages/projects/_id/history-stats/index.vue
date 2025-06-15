@@ -112,19 +112,6 @@
       </v-btn>
     </v-card-title>
 
-    <!-- Slider de Progresso -->
-    <v-card-subtitle class="px-6">
-      Progresso (% de exemplos resolvidos)
-      <v-slider
-        v-model="progress"
-        :max="100"
-        :step="10"
-        ticks="always"
-        class="mt-2"
-        @change="applyFilters"
-      />
-    </v-card-subtitle>
-
     <v-divider />
 
     <v-card-text>
@@ -207,8 +194,9 @@ export default {
       before: null,
       dateMenu: false,
       progress: 100,
-      datasetOptions: [{ text: 'Dataset Principal', value: 'default' }],
-      selectedDataset: 'default',
+      // Include a default "all" option so the user can view stats for all datasets
+      datasetOptions: [{ text: 'Todos os Datasets', value: null }],
+      selectedDataset: null,
       versionOptions: [],
       selectedVersion: null,
       // Perspective filters
@@ -236,8 +224,13 @@ export default {
   async mounted () {
     // load datasets
     try {
-      this.datasetOptions = await this.$repositories.stats.datasets(this.projectId)
-      if (this.datasetOptions.length) this.selectedDataset = this.datasetOptions[0].value
+      const remoteDatasets = await this.$repositories.stats.datasets(this.projectId)
+      // Always prepend the "all datasets" option
+      this.datasetOptions = [{ text: 'Todos os Datasets', value: null }, ...remoteDatasets]
+      // Keep previously selected value or default to "all"
+      if (remoteDatasets.length && this.selectedDataset === null) {
+        this.selectedDataset = null
+      }
     } catch (e) { /* ignore */ }
     this.fetchStats()
 

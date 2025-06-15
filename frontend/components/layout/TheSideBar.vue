@@ -1,3 +1,4 @@
+<!-- eslint-disable max-len -->
 <template>
   <v-list dense>
     <v-btn
@@ -43,10 +44,14 @@
                   <v-list-item-title>Relatório de Anotação</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                  @click="$router.push(
-                    localePath(`/projects/${$route.params.id}/rules/annotators`))"
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotators`))"
                 >
                   <v-list-item-title>Relatório de Anotadores</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/history-stats`))"
+                >
+                  <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
                 </v-list-item>
               </v-expansion-panel-content>
             </v-expansion-panel>
@@ -222,12 +227,6 @@ export default {
           icon: mdiChartPie,
           text: 'Annotation Distribution',
           link: 'annotation-distribution',
-          isVisible: true
-        },
-        {
-          icon: mdiChartBar,
-          text: 'Estatísticas do Histórico',
-          link: 'history-stats',
           isVisible: true
         }
       ]
