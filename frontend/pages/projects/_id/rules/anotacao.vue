@@ -1,3 +1,7 @@
+import jsPDF from 'jspdf'
+import 'jspdf-autotable' 
+
+
 <template>
     <layout-text>
       <template #header>
@@ -11,6 +15,14 @@
               @click="generateReport"
             >
               Gerar Relatório
+            </v-btn>
+            <v-btn
+              color="primary"
+              class="text-capitalize ml-2"
+              @click="exportPdf"
+            >
+              <v-icon left>{{ mdiFilePdfBox }}</v-icon>
+              Exportar para PDF
             </v-btn>
           </v-card-title>
         </v-card>
@@ -288,6 +300,9 @@
   </template>
   
   <script>
+  /* eslint-disable new-cap */
+  /* eslint-disable import/order */
+  import { mdiFilePdfBox } from '@mdi/js'
   import { mapGetters } from 'vuex'
   import LayoutText from '@/components/tasks/layout/LayoutText'
   import { usePerspectiveApplicationService } from '@/services/application/perspective/perspectiveApplicationService'
@@ -304,6 +319,7 @@
     data() {
       return {
         loading: false,
+        mdiFilePdfBox,
         selectedDatasets: ['all'],
         selectedType: 'all',
         selectedAgreement: 'all',
@@ -325,7 +341,7 @@
         datasetSummary: null,
         perspectiveGroups: [],
         selectedAnswers: {},
-        showFilters: false
+        showFilters: false,
       }
     },
   
@@ -641,7 +657,51 @@
         this.$nextTick(() => {
           this.applyFilters()
         })
+      },
+  
+      async exportPdf() {
+  try {
+    if (this.filteredReportData.length === 0) {
+      await this.generateReport();
+      if (this.filteredReportData.length === 0) {
+        this.$store.dispatch('notification/open', {
+          message: 'Não há dados para exportar. Por favor, gere o relatório primeiro.',
+          type: 'warning'
+        });
+        return;
       }
+    }
+
+    const doc = new jsPDF();
+
+    const tableColumn = ["Tipo", "Dataset", "Label", "Quantidade", "Usuários Únicos", "Concordância"];
+    const tableRows = this.filteredReportData.map(item => [
+      item.type,
+      item.dataset,
+      item.label,
+      item.count,
+      item.unique_users,
+      `${item.agreement?.percentage || 0}%`
+    ]);
+
+    doc.text('Relatório de Anotações', 14, 15);
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20
+    });
+
+    doc.output('relatorio-anotacoes.pdf');
+  } catch (error) {
+    console.error('Erro ao exportar PDF:', error);
+    this.$store.dispatch('notification/open', {
+      message: 'Erro ao exportar PDF: ' + (error.message || error),
+      type: 'error'
+    });
+  }
+}
+
+
     }
   }
   </script>
