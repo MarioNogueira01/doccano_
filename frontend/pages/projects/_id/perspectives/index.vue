@@ -268,6 +268,8 @@
 
    
 
+   
+
     <!-- Answer Questions Dialog -->
     <v-dialog v-model="dialogAnswer" max-width="600px">
       <v-card>
@@ -360,16 +362,23 @@
             <div v-if="editFormErrors.options" class="error--text caption mt-1">
               At least two options are required
             </div>
-            <v-text-field
+            <div
               v-for="(opt, i) in editingQuestion.options"
               :key="i"
-              v-model="editingQuestion.options[i]"
-              :label="`Option ${i+1} *`"
-              :rules="[v => !!v || 'Option is required']"
-              required
-              :error-messages="editFormErrors.options ? 'Option is required' : ''"
-              class="mt-2"
-            />
+              class="d-flex align-center mt-2"
+            >
+              <v-text-field
+                v-model="editingQuestion.options[i]"
+                :label="`Option ${i + 1} *`"
+                :rules="[v => !!v || 'Option is required']"
+                :error-messages="editFormErrors.options ? optionsErrorMessage : ''"
+                class="flex-grow-1 mr-2"
+                required
+              />
+              <v-btn fab x-small color="error" dark @click="editingQuestion.options.splice(i, 1)">
+                <v-icon small>mdi-delete</v-icon>
+              </v-btn>
+            </div>
           </div>
         </v-card-text>
         <v-card-actions>
@@ -598,8 +607,8 @@ export default {
 
       examples: [],
       selectedExample: null,
-      dialogSelectExample: false
-
+      dialogSelectExample: false,
+      optionsErrorMessage: 'Option is required'
     }
   },
 
@@ -957,6 +966,25 @@ export default {
         question: !q.question,
         data_type: !q.data_type,
         options: (q.data_type === 'string' || q.data_type === 'int') && q.options.length < 2
+      }
+
+      // reset message
+      this.optionsErrorMessage = 'Option is required'
+
+      const isNumeric = v => /^-?\d+(\.\d+)?$/.test(v.trim())
+      if (q.data_type === 'int') {
+        // Ensure every option numeric
+        if (q.options.some(opt => !isNumeric(opt))) {
+          this.editFormErrors.options = true
+          this.optionsErrorMessage = 'All options must be numeric for Number type'
+        }
+      }
+      if (q.data_type === 'string') {
+        // Prevent options that are purely numeric when type is text
+        if (q.options.some(opt => isNumeric(opt))) {
+          this.editFormErrors.options = true
+          this.optionsErrorMessage = 'Options cannot be purely numeric for Text type'
+        }
       }
 
       if (Object.values(this.editFormErrors).some(Boolean)) {

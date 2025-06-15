@@ -5,29 +5,33 @@
     </v-card-title>
 
     <v-card-text>
-      <v-form ref="form" v-if="user">
+      <v-form v-if="user" v-model="valid" ref="form">
         <v-text-field
           v-model="formData.username"
           label="Username"
+          :rules="usernameRules"
           required
         />
         <v-text-field
           v-model="formData.email"
           label="Email"
           type="email"
+          :rules="emailRules"
           required
         />
         <v-text-field
           v-model="formData.password"
           label="Nova Senha"
           type="password"
+          :rules="passwordRules"
+          required
         />
       </v-form>
     </v-card-text>
 
     <v-card-actions>
       <v-btn color="primary" text @click="onCancel">Cancelar</v-btn>
-      <v-btn color="primary" @click="onSave">Salvar</v-btn>
+      <v-btn color="primary" :disabled="!valid" @click="onSave">Salvar</v-btn>
     </v-card-actions>
   </v-card>
 </template>
@@ -50,7 +54,14 @@ export default {
         username: '',
         email: '',
         password: ''
-      }
+      },
+      valid: false,
+      usernameRules: [(v) => !!v || 'Campo obrigatório'],
+      emailRules: [
+        (v) => !!v || 'Campo obrigatório',
+        (v) => /.+@.+\..+/.test(v) || 'Email inválido'
+      ],
+      passwordRules: [(v) => !!v || 'Campo obrigatório']
     }
   },
   watch: {
@@ -71,6 +82,8 @@ export default {
       this.$emit('cancel')
     },
     async onSave() {
+      if (!this.$refs.form.validate()) return;
+
       try {
         console.log('Atualizando utilizador ID:', this.formData.id)
 

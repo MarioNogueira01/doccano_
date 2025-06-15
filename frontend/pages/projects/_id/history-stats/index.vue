@@ -100,6 +100,16 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
+
+      <v-spacer />
+
+      <!-- Export buttons -->
+      <v-btn color="primary" outlined class="me-2" @click="exportCSV">
+        Exportar CSV
+      </v-btn>
+      <v-btn color="primary" outlined @click="exportPDF">
+        Exportar PDF
+      </v-btn>
     </v-card-title>
 
     <!-- Slider de Progresso -->
@@ -135,6 +145,8 @@
                 :key="stat.version"
                 :labels="stat.labels"
                 :values="stat.votes"
+                :chart-id="`chart_${stat.version}`"
+                :ref="`chart_${stat.version}`"
               />
             </v-card-text>
           </v-card>
@@ -161,8 +173,25 @@ const BarChart = {
     render () {
       this.renderChart({
         labels: this.labels,
-        datasets: [{ label: 'Votos', backgroundColor: '#42A5F5', data: this.values }]
-      }, { responsive: true, maintainAspectRatio: false })
+        datasets: [{ label: 'Percentagem', backgroundColor: '#42A5F5', data: this.values }]
+      }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          yAxes: [{
+            ticks: {
+              beginAtZero: true,
+              max: 100,
+              callback: value => `${value}%`
+            }
+          }]
+        },
+        tooltips: {
+          callbacks: {
+            label: (tooltipItem) => `${parseFloat(tooltipItem.yLabel).toFixed(1)}%`
+          }
+        }
+      })
     }
   }
 }
@@ -243,7 +272,19 @@ export default {
       return params
     },
     async fetchStats () {
-      this.stats = await this.$repositories.stats.labelVotes(this.projectId, this.buildParams())
+      // Retrieve raw vote counts
+      const rawStats = await this.$repositories.stats.labelVotes(this.projectId, this.buildParams())
+
+      // Convert vote counts to percentages for each version
+      this.stats = rawStats.map(s => {
+        const total = s.votes.reduce((acc, v) => acc + v, 0)
+        const percentVotes = total === 0
+          ? s.votes.map(() => 0)
+          : s.votes.map(v => parseFloat(((v / total) * 100).toFixed(2)))
+        return { ...s, votes: percentVotes }
+      })
+
+      // Populate version options
       this.versionOptions = this.stats.map(d => d.version).sort((a, b) => a - b)
     },
     applyFilters () {
@@ -257,6 +298,167 @@ export default {
       this.selectedPerspectiveAnswers = {}
       this.perspectiveFilterDialog = false
       this.applyFilters()
+    },
+    /* -------------------------    EXPORT  CSV / PDF   ------------------------- */
+    exportCSV () {
+      const delimiter = ';'
+      const rows = [
+        ['Versão', 'Rótulo', 'Percentagem']
+      ]
+
+      this.displayedStats.forEach(s => {
+        s.labels.forEach((label, idx) => {
+          rows.push([s.version, label, `${s.votes[idx]}%`])
+        })
+      })
+
+      const csvContent = '\uFEFF' + // UTF-8 BOM for better compatibility (Excel)
+        rows
+          .map(r => r.map(item => {
+            const field = String(item)
+            const needsQuotes = field.includes(delimiter) || field.includes('"') || field.includes('\n')
+            const escaped = field.replace(/"/g, '""')
+            return needsQuotes ? `"${escaped}"` : escaped
+          }).join(delimiter))
+          .join('\r\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `hist_stats_${new Date().toISOString()}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    },
+    async loadJsPDF () {
+      if (window.jspdf && window.jspdf.jsPDF) {
+        // Ensure autoTable plugin is loaded as well
+        if (!window.jspdf.jsPDF.API.autoTable) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
+            script.onload = resolve
+            script.onerror = reject
+            document.body.appendChild(script)
+          })
+        }
+        return window.jspdf.jsPDF
+      }
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.body.appendChild(script)
+      })
+      // After core loaded, load autotable
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.body.appendChild(script)
+      })
+      return window.jspdf.jsPDF
+    },
+    async exportPDF () {
+      try {
+        const jsPDF = await this.loadJsPDF()
+        // eslint-disable-next-line new-cap
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+
+        let y = 10
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const pageHeight = doc.internal.pageSize.getHeight()
+        const margin = 18
+
+        // Header bar
+        doc.setFillColor(63, 81, 181) // Indigo
+        doc.rect(0, 0, pageWidth, 20, 'F')
+        doc.setFontSize(16)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text('Estatísticas do Histórico de Anotações', pageWidth / 2, 13, { align: 'center' })
+
+        // Reset default text color
+        doc.setTextColor(0, 0, 0)
+
+        y = 28
+        const maxPageHeight = pageHeight - margin
+
+        const addFooter = (pageNum, totalPages) => {
+          doc.setFontSize(8)
+          doc.setTextColor(150)
+          doc.text(`Página ${pageNum} / ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' })
+          doc.setTextColor(0)
+        }
+
+        this.displayedStats.forEach(s => {
+          // Section title
+          doc.setFontSize(13)
+          doc.setFont(undefined, 'bold')
+          doc.text(`Versão ${s.version}`, margin, y)
+          y += 6
+
+          // Include table-like list under chart
+          const chartCanvas = document.getElementById(`chart_${s.version}`)
+          if (chartCanvas) {
+            const imgData = chartCanvas.toDataURL('image/png', 1.0)
+            // Calculate image dimensions (keep aspect ratio, fit width)
+            const imgWidth = pageWidth - margin * 2
+            const imgHeight = (chartCanvas.height / chartCanvas.width) * imgWidth
+
+            if (y + imgHeight > maxPageHeight) {
+              doc.addPage()
+              y = margin
+            }
+
+            doc.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight)
+            y += imgHeight + 4
+          }
+
+          // Labels table with autoTable
+          const tableBody = s.labels.map((label, idx) => [label, `${s.votes[idx]}%`])
+          doc.autoTable({
+            head: [['Rótulo', 'Percentagem']],
+            body: tableBody,
+            startY: y,
+            margin: { left: margin, right: margin },
+            theme: 'grid',
+            headStyles: { fillColor: [63, 81, 181], halign: 'center', valign: 'middle', textColor: 255 },
+            bodyStyles: { halign: 'center' },
+            styles: { fontSize: 9 },
+            didDrawPage: (d) => {
+              // Draw header bar on new pages generated by autoTable
+              if (d.pageNumber > 1) {
+                doc.setFillColor(63, 81, 181)
+                doc.rect(0, 0, pageWidth, 20, 'F')
+                doc.setFontSize(16)
+                doc.setTextColor(255)
+                doc.setFont(undefined, 'bold')
+                doc.text('Estatísticas do Histórico de Anotações', pageWidth / 2, 13, { align: 'center' })
+                doc.setTextColor(0)
+              }
+            }
+          })
+
+          y = doc.autoTable.previous.finalY + 8
+
+          // Add footers with page numbers
+          const totalPages = doc.getNumberOfPages()
+          for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i)
+            addFooter(i, totalPages)
+          }
+        })
+
+        doc.save(`hist_stats_${new Date().toISOString()}.pdf`)
+      } catch (e) {
+        console.error('Falha ao exportar PDF', e)
+        this.$toast?.error?.('Não foi possível exportar o PDF')
+      }
     }
   }
 }
