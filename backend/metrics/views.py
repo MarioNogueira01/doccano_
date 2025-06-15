@@ -321,6 +321,12 @@ class DatasetStatisticsAPI(APIView):
         # Format the entries
         entries = []
         for example in paginated_query:
+            # Get label counts for this example
+            category_counts = {}
+            for category in example.categories.all():
+                label_text = category.label.text
+                category_counts[label_text] = category_counts.get(label_text, 0) + 1
+
             entries.append({
                 'id': example.id,
                 'text': example.text[:100] + '...' if len(example.text) > 100 else example.text,
@@ -328,7 +334,8 @@ class DatasetStatisticsAPI(APIView):
                 'categoryCount': example.categories.count(),
                 'spanCount': example.spans.count(),
                 'relationCount': example.relations.count(),
-                'updatedAt': example.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+                'updatedAt': example.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'labelDistribution': category_counts  # Add the label distribution
             })
 
         data = {

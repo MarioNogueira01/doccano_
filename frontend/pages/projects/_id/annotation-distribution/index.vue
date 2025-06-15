@@ -118,6 +118,14 @@
                                   return context.dataset.label || context.label
                                 }
                               }
+                            },
+                            title: {
+                              display: true,
+                              text: 'LABELS',
+                              font: {
+                                size: 14,
+                                weight: 'bold'
+                              }
                             }
                           },
                           scales: {
@@ -355,13 +363,9 @@ export default {
         const response = await this.$axios.get(url)
         const annotations = response.data || []
         
-        // Ensure annotations is an array and filter for this document
-        const docAnnotations = Array.isArray(annotations) 
-        ? annotations.filter(ann => ann.example === docId) : []
-        
-        // Store filtered annotations for this document
-        this.documentAnnotations[docId] = docAnnotations
-        return docAnnotations
+        // Store annotations for this document
+        this.documentAnnotations[docId] = annotations
+        return annotations
       } catch (error) {
         console.error(`Error fetching annotations for document ${docId}:`, error)
         return []
@@ -390,85 +394,54 @@ export default {
         }
       }
 
-      // Get the raw category distribution
-      const rawCategoryDist = toRaw(this.labelDistribution?.categories)
-      console.log('Raw category distribution:', rawCategoryDist)
-
-      // Get the document's annotations
-      const annotations = this.documentAnnotations[rawItem.id] || []
-      console.log('Document annotations:', annotations)
+      // Get the label distribution from the item
+      const labelDistribution = rawItem.labelDistribution || {}
+      console.log('Label distribution:', labelDistribution)
 
       // Get the raw label types
-      const rawLabelTypes = toRaw(this.labelTypes.categories)
+      const rawLabelTypes = toRaw(this.labelTypes.categories) || []
       console.log('Raw label types:', rawLabelTypes)
 
-      // First try to get the label from annotations
-      let labelName = null
-      let labelType = null
+      // If we have labels, use them
+      if (Object.keys(labelDistribution).length > 0) {
+        const labels = Object.keys(labelDistribution)
+        console.log('Using labels:', labels)
+        const data = labels.map(label => labelDistribution[label])
+        const backgroundColors = labels.map(label => {
+          const labelType = rawLabelTypes.find(lt => lt.text === label)
+          return labelType?.backgroundColor || this.getLabelColor(label)
+        })
 
-      if (annotations.length > 0) {
-        // Get the first annotation's label
-        const firstAnnotation = annotations[0]
-        labelType = rawLabelTypes.find(lt => lt.id === firstAnnotation.label)
-        if (labelType) {
-          labelName = labelType.text
-        }
-      }
-
-      // If we couldn't find the label from annotations, try to get it from the distribution
-      if (!labelName && rawCategoryDist) {
-        // Get the document's position in the dataset
-        const docIndex = this.datasetStats.entries.findIndex(entry => entry.id === rawItem.id)
-        console.log('Document index:', docIndex)
-
-        if (docIndex !== -1) {
-          // Look through each user's distribution
-          for (const [, userDist] of Object.entries(rawCategoryDist)) {
-            // Find all labels that have a count > 0
-            const usedLabels = Object.entries(userDist)
-              .filter(([_, count]) => count > 0)
-              .map(([label]) => label)
-
-            // If we have exactly one label used, use it
-            if (usedLabels.length === 1) {
-              labelName = usedLabels[0]
-              labelType = rawLabelTypes.find(lt => lt.text === labelName)
-              break
-            }
-            // If we have multiple labels, use the one that matches our document's position
-            else if (usedLabels.length > 1) {
-              // Use the label at the document's position (modulo the number of labels)
-              const labelIndex = docIndex % usedLabels.length
-              labelName = usedLabels[labelIndex]
-              labelType = rawLabelTypes.find(lt => lt.text === labelName)
-              break
-            }
-          }
-        }
-      }
-
-      console.log('Found label for document:', labelName)
-
-      // If we found a label, use it
-      if (labelName && labelType) {
         return {
-          labels: [labelName],
+          labels,
           datasets: [{
-            label: labelName,
-            backgroundColor: [labelType.backgroundColor || this.getLabelColor(labelName)],
+            label: 'Labels',
+            data,
+            backgroundColor: backgroundColors,
+            barThickness: 45
+          }]
+        }
+      }
+
+      // If we have category count but no specific labels, show the count
+      if (categoryCount > 0) {
+        return {
+          labels: ['Categories'],
+          datasets: [{
+            label: 'Categories',
+            backgroundColor: ['#4CAF50'],
             data: [categoryCount],
             barThickness: 45
           }]
         }
       }
 
-      // Fallback to generic category if we couldn't determine the label
+      // Fallback to empty state
       return {
-        labels: ['Categories'],
+        labels: ['No Labels'],
         datasets: [{
-          label: 'Categories',
-          backgroundColor: ['#4CAF50'],
-          data: [categoryCount],
+          backgroundColor: ['#E0E0E0'],
+          data: [1],
           barThickness: 45
         }]
       }
