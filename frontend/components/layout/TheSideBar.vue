@@ -1,28 +1,58 @@
 <template>
   <v-list dense>
-    <v-btn color="ms-4 my-1 mb-2 primary text-capitalize" nuxt @click="toLabeling">
-      <v-icon left>
-        {{ mdiPlayCircleOutline }}
-      </v-icon>
+    <v-btn
+      color="primary"
+      class="ms-4 my-1 mb-2 text-capitalize"
+      nuxt
+      @click="toLabeling"
+    >
+      <v-icon left>{{ mdiPlayCircleOutline }}</v-icon>
       {{ $t('home.startAnnotation') }}
     </v-btn>
     <v-list-item-group v-model="selected" mandatory>
-      <v-list-item
-        v-for="(item, i) in filteredItems"
-        :key="i"
-        @click="$router.push(localePath(`/projects/${$route.params.id}/${item.link}`))"
-      >
-        <v-list-item-action>
-          <v-icon>
-            {{ item.icon }}
-          </v-icon>
-        </v-list-item-action>
-        <v-list-item-content>
-          <v-list-item-title>
-            {{ item.text }}
-          </v-list-item-title>
-        </v-list-item-content>
-      </v-list-item>
+      <div v-for="(item, i) in filteredItems" :key="i">
+        <!-- Itens normais -->
+        <template v-if="item.link !== 'rulesReports'">
+          <v-list-item
+            @click="$router.push(localePath(`/projects/${$route.params.id}/${item.link}`))"
+          >
+            <v-list-item-action>
+              <v-icon>{{ item.icon }}</v-icon>
+            </v-list-item-action>
+            <v-list-item-content>
+              <v-list-item-title>{{ item.text }}</v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+        </template>
+        <!-- Item de Relatórios (dropdown) -->
+        <template v-else>
+          <v-expansion-panels flat>
+            <v-expansion-panel :key="i">
+              <v-expansion-panel-header>
+                <v-list-item-action class="pl-0" style="margin-left: -7px;">
+                  <v-icon>{{ item.icon }}</v-icon>
+                </v-list-item-action>
+                <v-list-item-content class="pl-0" style="margin-left: -65px;">
+                  <v-list-item-title>{{ item.text }}</v-list-item-title>
+                </v-list-item-content>
+              </v-expansion-panel-header>
+              <v-expansion-panel-content>
+                <v-list-item
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/anotacao`))"
+                >
+                  <v-list-item-title>Relatório de Anotação</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  @click="$router.push(
+                    localePath(`/projects/${$route.params.id}/rules/annotators`))"
+                >
+                  <v-list-item-title>Relatório de Anotadores</v-list-item-title>
+                </v-list-item>
+              </v-expansion-panel-content>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </template>
+      </div>
     </v-list-item-group>
   </v-list>
 </template>
@@ -56,18 +86,16 @@ export default {
     },
     project: {
       type: Object,
-      default: () => {},
+      default: () => ({}),
       required: true
     }
   },
-
   data() {
     return {
       selected: 0,
       mdiPlayCircleOutline
     }
   },
-
   computed: {
     filteredItems() {
       const items = [
@@ -88,7 +116,8 @@ export default {
           text: this.$t('labels.labels'),
           link: 'labels',
           isVisible:
-            (this.isProjectAdmin || this.project.allowMemberToCreateLabelType) &&
+            (this.isProjectAdmin ||
+              this.project.allowMemberToCreateLabelType) &&
             this.project.canDefineLabel
         },
         {
@@ -96,7 +125,8 @@ export default {
           text: 'Relations',
           link: 'links',
           isVisible:
-            (this.isProjectAdmin || this.project.allowMemberToCreateLabelType) &&
+            (this.isProjectAdmin ||
+              this.project.allowMemberToCreateLabelType) &&
             this.project.canDefineRelation
         },
         {
@@ -149,15 +179,14 @@ export default {
           link: 'discrepancies',
           isVisible: this.isProjectAdmin
         },
+        // Remova os itens individuais e insira o único item dropdown "Relatórios"
         {
 
           icon: mdiChartBox,
           text: 'Relatórios',
-          link: 'report',
+          link: 'rulesReports',
           isVisible: true
         },
-
-
         {
           icon: mdiDatabase,
           text: 'Discrepâncias',
@@ -187,7 +216,7 @@ export default {
         {
           icon: mdiHistory,
           text: 'Histórico das Regras',
-          link: 'rules/history',
+          link: 'rules/history'
         },
         {
           icon: mdiChartPie,
@@ -202,14 +231,16 @@ export default {
           isVisible: true
         }
       ]
-      return items.filter((item) => item.isVisible)
+      return items.filter(item => item.isVisible)
     }
   },
-
   methods: {
     toLabeling() {
       const query = this.$services.option.findOption(this.$route.params.id)
-      const link = getLinkToAnnotationPage(this.$route.params.id, this.project.projectType)
+      const link = getLinkToAnnotationPage(
+        this.$route.params.id,
+        this.project.projectType
+      )
       this.$router.push({
         path: this.localePath(link),
         query
