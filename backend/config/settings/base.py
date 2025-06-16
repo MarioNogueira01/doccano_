@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "projects",
     "metrics",
     "users",
+
     "data_import",
     "data_export",
     "auto_labeling",
@@ -85,6 +86,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    # Custom middleware that returns HTTP 503 when DB is unavailable
+    "api.middleware.DatabaseHealthMiddleware",
 ]
 
 

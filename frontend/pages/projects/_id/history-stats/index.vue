@@ -139,6 +139,12 @@
           </v-card>
         </v-col>
       </v-row>
+
+      <!-- Snackbar de erro -->
+      <v-snackbar v-model="dbErrorVisible" :timeout="4000" color="error" top>
+        {{ dbErrorMessage }}
+        <v-btn text @click="dbErrorVisible = false">Fechar</v-btn>
+      </v-snackbar>
     </v-card-text>
   </v-card>
 </template>
@@ -202,7 +208,10 @@ export default {
       // Perspective filters
       perspectiveFilterDialog: false,
       perspectiveGroups: [],
-      selectedPerspectiveAnswers: {}
+      selectedPerspectiveAnswers: {},
+      // Snackbar erro BD
+      dbErrorVisible: false,
+      dbErrorMessage: ''
     }
   },
   computed: {
@@ -231,7 +240,10 @@ export default {
       if (remoteDatasets.length && this.selectedDataset === null) {
         this.selectedDataset = null
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      console.error('Erro ao carregar datasets', e)
+      this.handleDbError(e, 'Erro ao carregar datasets.')
+    }
     this.fetchStats()
 
     // Load perspective groups for filters
@@ -239,11 +251,19 @@ export default {
       const response = await this.$services.perspective.listPerspectiveGroups(this.projectId)
       this.perspectiveGroups = response.results || response.data?.results || []
     } catch (e) {
-      // ignore errors silently for now
       console.error('Failed to load perspective groups', e)
+      this.handleDbError(e, 'Erro ao carregar grupos de perspectiva.')
     }
   },
   methods: {
+    handleDbError (err, fallbackMsg) {
+      if (!err.response || (err.response.status && err.response.status >= 500)) {
+        this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+      } else {
+        this.dbErrorMessage = err.response?.data?.detail || fallbackMsg || 'Ocorreu um erro.'
+      }
+      this.dbErrorVisible = true
+    },
     onDatasetChange () {
       // Reset selected version when dataset changes to avoid dangling version values
       this.selectedVersion = null
@@ -265,20 +285,26 @@ export default {
       return params
     },
     async fetchStats () {
-      // Retrieve raw vote counts
-      const rawStats = await this.$repositories.stats.labelVotes(this.projectId, this.buildParams())
+      try {
+        const params = this.buildParams()
+        const rawStats = await this.$repositories.stats.labelVotes(
+          this.projectId,
+          params
+        )
 
-      // Convert vote counts to percentages for each version
-      this.stats = rawStats.map(s => {
-        const total = s.votes.reduce((acc, v) => acc + v, 0)
-        const percentVotes = total === 0
-          ? s.votes.map(() => 0)
-          : s.votes.map(v => parseFloat(((v / total) * 100).toFixed(2)))
-        return { ...s, votes: percentVotes }
-      })
+        this.stats = rawStats.map(s => {
+          const total = s.votes.reduce((acc, v) => acc + v, 0)
+          const percentVotes = total === 0
+            ? s.votes.map(() => 0)
+            : s.votes.map(v => parseFloat(((v / total) * 100).toFixed(2)))
+          return { ...s, votes: percentVotes }
+        })
 
-      // Populate version options
-      this.versionOptions = this.stats.map(d => d.version).sort((a, b) => a - b)
+        this.versionOptions = this.stats.map(d => d.version).sort((a, b) => a - b)
+      } catch (e) {
+        console.error('Erro ao buscar estatísticas', e)
+        this.handleDbError(e, 'Erro ao buscar estatísticas.')
+      }
     },
     applyFilters () {
       this.fetchStats()

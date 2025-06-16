@@ -29,6 +29,12 @@
       hide-details
     ></v-text-field>
     <v-btn small color="primary" @click="send">Enviar</v-btn>
+
+    <!-- Snackbar de erro -->
+    <v-snackbar v-model="dbErrorVisible" :timeout="4000" top color="error">
+      {{ dbErrorMessage }}
+      <v-btn text @click="dbErrorVisible = false">Fechar</v-btn>
+    </v-snackbar>
   </v-card>
 </template>
 
@@ -45,6 +51,8 @@ export default {
       messages: [],
       text: '',
       loading: false,
+      dbErrorVisible: false,
+      dbErrorMessage: ''
     }
   },
   mounted() {
@@ -65,6 +73,12 @@ export default {
         })
       } catch (e) {
         console.error('Erro ao buscar mensagens', e)
+        if (!e.response || (e.response.status && e.response.status >= 500)) {
+          this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          this.dbErrorMessage = e.response?.data?.detail || 'Erro ao buscar mensagens.'
+        }
+        this.dbErrorVisible = true
       } finally {
         this.loading = false
       }
@@ -82,6 +96,12 @@ export default {
         await this.fetchMessages()
       } catch (e) {
         console.error('Erro ao enviar mensagem', e)
+        if (!e.response || (e.response.status && e.response.status >= 500)) {
+          this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          this.dbErrorMessage = e.response?.data?.detail || 'Erro ao enviar mensagem.'
+        }
+        this.dbErrorVisible = true
       }
     },
     scrollToBottom() {

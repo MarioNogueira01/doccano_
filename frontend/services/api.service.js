@@ -34,6 +34,9 @@ class ApiService {
           // O logout será tratado pelo middleware de autenticação
           window.location.href = '/login'
         }
+        // Erro 503 será tratado por um interceptor global (plugins/db-down.js). Se
+        // este módulo for usado isoladamente fora do Nuxt ainda queremos
+        // propagar o erro, por isso não mostramos UI aqui.
         return Promise.reject(error)
       }
     )

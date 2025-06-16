@@ -96,6 +96,11 @@
           </v-card-actions>
         </v-card>
       </div>
+      <!-- Snackbar de erro -->
+      <v-snackbar v-model="dbErrorVisible" :timeout="4000" color="error" top>
+        {{ dbErrorMessage }}
+        <v-btn text @click="dbErrorVisible = false">Fechar</v-btn>
+      </v-snackbar>
     </v-card-text>
   </v-card>
 </template>
@@ -124,7 +129,9 @@ export default {
         annotations: [],
         groupedByLabel: {},
         comments: [],
-        newComment: ''
+        newComment: '',
+        dbErrorVisible: false,
+        dbErrorMessage: ''
       }
     } catch (e) {
       error({ statusCode: 404, message: 'Exemplo não encontrado' })
@@ -181,9 +188,15 @@ export default {
         this.buildAnnotations(groupedByLabel)
         if (this.selectedLabelId) this.fetchComments()
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('Failed to fetch annotations', err)
         this.annotations = []
+        // mostrar snackbar se BD indisponível
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          this.dbErrorMessage = err.response?.data?.detail || 'Erro ao obter anotações.'
+        }
+        this.dbErrorVisible = true
       }
     },
     async fetchComments() {
@@ -195,9 +208,14 @@ export default {
           this.selectedLabelId
         )
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('Failed to load comments', err)
         this.comments = []
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          this.dbErrorMessage = err.response?.data?.detail || 'Erro ao carregar comentários.'
+        }
+        this.dbErrorVisible = true
       }
     },
     formatTime(iso) {
@@ -215,8 +233,13 @@ export default {
         this.comments.push(newComment)
         this.newComment = ''
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('Failed to send comment', err)
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          this.dbErrorMessage = err.response?.data?.detail || 'Erro ao enviar comentário.'
+        }
+        this.dbErrorVisible = true
       }
     },
     buildAnnotations(grouped) {

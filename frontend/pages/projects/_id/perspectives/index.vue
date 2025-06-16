@@ -1088,8 +1088,11 @@ export default {
         this.snackbarMessage = 'Question updated successfully'
         this.snackbar = true
       } catch (e) {
-        console.error(e)
-        this.snackbarErrorMessage = e.response?.data?.detail || 'Error updating question'
+        if (!e.response || (e.response.status && e.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = e.response?.data?.detail || 'Error updating question';
+        }
         this.snackbarError = true
       }
     },
