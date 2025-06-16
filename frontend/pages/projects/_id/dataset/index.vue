@@ -10,11 +10,27 @@
       />
       <v-btn
         class="text-capitalize ms-2"
+        color="error"
+        outlined
+        @click="updateProjectStatus('closed')"
+      >
+        Fechar Projeto
+      </v-btn>
+      <v-btn
+        class="text-capitalize ms-2"
+        color="success"
+        outlined
+        @click="updateProjectStatus('open')"
+      >
+        Reabrir Projeto
+      </v-btn>
+      <v-btn
+        class="text-capitalize ms-2"
         :disabled="!canDelete"
         outlined
         @click.stop="dialogDelete = true"
       >
-        {{ $t('generic.delete') }}
+        Delete
       </v-btn>
       <v-spacer />
       <v-btn
@@ -23,7 +39,7 @@
         color="error"
         @click="dialogDeleteAll = true"
       >
-        {{ $t('generic.deleteAll') }}
+        Delete All
       </v-btn>
       <v-dialog v-model="dialogDelete">
         <form-delete
@@ -153,7 +169,7 @@ import { NuxtAppOptions } from '@nuxt/types'
 import DocumentList from '@/components/example/DocumentList.vue'
 import FormAssignment from '~/components/example/FormAssignment.vue'
 import FormDelete from '@/components/example/FormDelete.vue'
-import FormDeleteBulk from '@/components/example/FormDeleteBulk.vue'
+import FormDeleteBulk from '~/components/example/FormDeleteBulk.vue'
 import FormResetAssignment from '~/components/example/FormResetAssignment.vue'
 import ActionMenu from '~/components/example/ActionMenu.vue'
 import AudioList from '~/components/example/AudioList.vue'
@@ -174,7 +190,7 @@ export default Vue.extend({
     FormDelete,
     FormDeleteBulk,
     FormResetAssignment,
-    FormCompareAnnotations, // Add this line
+    FormCompareAnnotations,
     ComparisonView
   },
 
@@ -211,6 +227,7 @@ export default Vue.extend({
       dialogEdit: false,
       editedItem: {} as ExampleDTO,
       page: 1,
+      search: '', // Initialize search property
     }
   },
 
@@ -246,22 +263,22 @@ export default Vue.extend({
       return this.$route.params.id
     },
 
-    itemKey(this: NuxtAppOptions): string {
+    itemKey(): string {
       if (this.project.isImageProject || this.project.isAudioProject) {
         return 'filename'
       } else {
         return 'text'
       }
-    }
+    },
   },
 
   watch: {
-    '$route.query': _.debounce(function (this: NuxtAppOptions) {
+    '$route.query': _.debounce(function () {
       this.$fetch()
     }, 1000)
   },
 
-  async created(this: NuxtAppOptions) {
+  async created() {
     const member = await this.$repositories.member.fetchMyRole(this.projectId)
     this.isProjectAdmin = member.isProjectAdmin
     
@@ -280,7 +297,7 @@ export default Vue.extend({
   },
 
   methods: {
-    async remove(this: NuxtAppOptions) {
+    async remove() {
       await this.$services.example.bulkDelete(this.projectId, this.selected)
       await this.$fetch()
       this.dialogDelete = false
@@ -306,12 +323,12 @@ export default Vue.extend({
       })
     },
 
-    editItem(this: NuxtAppOptions, item: ExampleDTO) {
+    editItem(item: ExampleDTO) {
       this.editedItem = Object.assign({}, item)
       this.dialogEdit = true
     },
 
-    async assign(this: NuxtAppOptions, exampleId: number, assigneeId: number) {
+    async assign(exampleId: number, assigneeId: number) {
       try {
         await this.$repositories.assignment.assign(this.projectId, exampleId, assigneeId);
         await this.$fetch(); // Refresh data to reflect changes
@@ -321,7 +338,7 @@ export default Vue.extend({
       }
     },
 
-    async unassign(this: NuxtAppOptions, assignmentId: string) {
+    async unassign(assignmentId: string) {
       try {
         await this.$repositories.assignment.unassign(this.projectId, assignmentId);
         await this.$fetch(); // Refresh data to reflect changes
@@ -342,7 +359,7 @@ export default Vue.extend({
       this.item = await this.$services.example.list(this.projectId, this.$route.query)
     },
 
-    openComparisonDialog(this: NuxtAppOptions, users:
+    openComparisonDialog(users:
      { user1: number; user2: number; documentId: number }) {
       this.selectedDocumentId = users.documentId;
       this.comparisonUsers.user1 = users.user1;
@@ -351,20 +368,26 @@ export default Vue.extend({
       this.dialogCompare = true;
     },
 
-    handleNoAnnotations(this: NuxtAppOptions, message: string) {
+    handleNoAnnotations(message: string) {
       this.noAnnotationsMessage = message;
       this.noAnnotationsSnackbar = true;
       this.dialogCompare = false;
     },
 
-    openVotePage(this: NuxtAppOptions, item: ExampleDTO) {
-      this.$router.push(
-        getLinkToAnnotationPage(this.projectId, item.id, this.search, String(this.page))
-        + '&activeTab=vote'
-      )
+    openVotePage(item: ExampleDTO) {
+      const link = getLinkToAnnotationPage(this.projectId, this.project.projectType);
+      this.$router.push({
+        path: this.localePath(link),
+        query: {
+          exampleId: item.id,
+          q: this.search,
+          page: String(this.page),
+          activeTab: 'vote'
+        }
+      })
     },
 
-    async updateExample(this: NuxtAppOptions) {
+    async updateExample() {
       try {
         await this.$services.example.update(this.projectId, this.editedItem)
         this.dialogEdit = false
@@ -372,6 +395,31 @@ export default Vue.extend({
       } catch (e) {
         console.log(e)
       }
+    },
+    async updateProjectStatus(newStatus: string) {
+      try {
+        await this.$repositories.project.update(this.projectId, { status: newStatus });
+        await this.$store.dispatch('projects/fetchProject', this.projectId);
+        
+        // If closing project, navigate to projects list
+        if (newStatus === 'closed') {
+          this.$router.push('/projects');
+          this.$toasted.success('Projeto fechado!');
+        } else {
+          // If opening project, navigate to the project's dataset page
+          this.$router.push(`/projects/${this.projectId}/dataset`);
+          this.$toasted.success('Projeto reaberto!');
+        }
+        
+        this.$forceUpdate();
+      } catch (e) {
+        this.$toasted.error('Erro ao atualizar status do projeto.');
+      }
+    },
+    async toggleProjectStatus() {
+      const currentStatus = this.project.status;
+      const newStatus = currentStatus === 'open' ? 'closed' : 'open';
+      await this.updateProjectStatus(newStatus);
     },
   }
 })

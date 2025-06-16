@@ -40,6 +40,8 @@ class Project(PolymorphicModel):
     collaborative_annotation = models.BooleanField(default=False)
     single_class_classification = models.BooleanField(default=False)
     allow_member_to_create_label_type = models.BooleanField(default=False)
+    project_version = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=10, choices=[("open", "Open"), ("closed", "Closed")], default="open")
 
     def add_admin(self):
         admin_role = Role.objects.get(name=settings.ROLE_PROJECT_ADMIN)

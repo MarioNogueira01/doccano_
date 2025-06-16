@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "metrics",
     "users",
     "data_import",
+    "django_extensions",
     "data_export",
     "auto_labeling",
     "labels",
