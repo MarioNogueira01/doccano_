@@ -41,17 +41,17 @@
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/anotacao`))"
                 >
-                  <v-list-item-title>Annotation Report</v-list-item-title>
+                  <v-list-item-title>Relatório de Anotação</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotators`))"
                 >
-                  <v-list-item-title>Annotators Report</v-list-item-title>
+                  <v-list-item-title>Relatório de Anotadores</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/history-stats`))"
                 >
-                  <v-list-item-title>History Statistics</v-list-item-title>
+                  <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotation-history`))"
@@ -59,7 +59,7 @@
                   <v-list-item-title>History of Annotations</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotation-distribution`))"
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/annotation-distribution`))"
                 >
                   <v-list-item-title>Annotation Distribution</v-list-item-title>
                 </v-list-item>
@@ -178,32 +178,32 @@ export default {
 
         {
           icon: mdiViewDashboard,
-          text: 'Perspectives',
+          text: 'Perspetivas',
           link: 'perspectives',
           isVisible: this.isProjectAdmin
         },
         {
           icon: mdiDatabase,
-          text: 'Perspectives',
+          text: 'Perspetivas',
           link: 'perspectives',
           isVisible: !this.isProjectAdmin
         },
         {
           icon: mdiAlertCircleOutline,
-          text: 'Discrepancies',
+          text: 'Discrepâncias',
           link: 'discrepancies',
           isVisible: this.isProjectAdmin
         },
         // Remova os itens individuais e insira o único item dropdown "Relatórios"
         {
           icon: mdiChartBox,
-          text: 'Reports',
+          text: 'Relatórios',
           link: 'rulesReports',
           isVisible: true
         },
         {
           icon: mdiDatabase,
-          text: 'Discrepancies',
+          text: 'Discrepâncias',
           link: 'discrepancies',
           isVisible: false
         },
@@ -217,19 +217,19 @@ export default {
         },
         {
           icon: mdiChartBar,
-          text: 'Votes',
+          text: 'Votações',
           link: 'votacoes',
           isVisible: false
         },
         {
           icon: mdiChartBar,
-          text: 'Rules',
+          text: 'Regras',
           link: 'rules',
           isVisible: true
         },
         {
           icon: mdiHistory,
-          text: 'Rules History',
+          text: 'Histórico das Regras',
           link: 'rules/history'
         },
         {
