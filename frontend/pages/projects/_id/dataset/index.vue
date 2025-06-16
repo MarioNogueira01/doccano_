@@ -462,15 +462,14 @@ export default Vue.extend({
       const currentStatus = this.project.status;
       const newStatus = currentStatus === 'open' ? 'closed' : 'open';
       await this.updateProjectStatus(newStatus);
+    },
 
-
-    handleCompareError(errorMessage) {
+    handleCompareError(errorMessage: string) {
       this.errorMessage = errorMessage;
       this.hasError = true;
       this.dialogCompareForm = false;
       this.dialogCompare = false;
-
-    },
+    }
   }
 })
 </script>
