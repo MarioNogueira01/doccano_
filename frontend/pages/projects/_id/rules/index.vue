@@ -168,16 +168,13 @@ export default {
         const response = await this.$services.rules.listRulesToSubmit(this.projectId);
         console.log('API response:', response);
         if (!response.rules || response.rules.length === 0) {
-          this.snackbarErrorMessage = 'No Rules found for this project.';
-          this.snackbarError = true;
           this.rules = [];
         } else {
           this.rules = [...response.rules];
         }
       } catch (err) {
         console.error('Error fetching rules:', err);
-        this.snackbarErrorMessage = 'Failed to fetch rules. Please try again later.';
-        this.snackbarError = true;
+        this.rules = [];
       } finally {
         this.loading = false;
       }
