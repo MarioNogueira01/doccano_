@@ -267,7 +267,7 @@
       <!-- Novo botão Discussão -->
       <template #[`item.actions`]="{ item }">
         <v-btn small color="primary" @click="goToDiscussion(item)">
-          Discussão
+          Discussion
         </v-btn>
       </template>
     </v-data-table>
@@ -477,7 +477,11 @@ export default {
         this.discrepancies = response.discrepancies || [];
       } catch (err) {
         console.error('Error fetching discrepancies:', err);
-        this.snackbarErrorMessage = 'Failed to fetch discrepancies. Please try again later.';
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = 'Failed to fetch discrepancies. Please try again later.';
+        }
         this.snackbarError = true;
       } finally {
         this.loading = false;
@@ -491,7 +495,11 @@ export default {
         this.perspectiveGroups = response.results || [];
       } catch (err) {
         console.error('Error fetching perspective groups:', err);
-        this.snackbarErrorMessage = 'Failed to fetch perspective groups.';
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = 'Failed to fetch perspective groups.';
+        }
         this.snackbarError = true;
       }
     },
