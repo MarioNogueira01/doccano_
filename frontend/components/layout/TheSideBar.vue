@@ -54,7 +54,7 @@
                   <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotation-history`))"
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/annotation-history`))"
                 >
                   <v-list-item-title>History of Annotations</v-list-item-title>
                 </v-list-item>
