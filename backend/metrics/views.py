@@ -188,7 +188,7 @@ class DatasetStatisticsAPI(APIView):
 
             # Start with all users who are members of this project.
             # We use distinct() to avoid duplicate users if they have multiple role mappings.
-            users_matching_filters_queryset = User.objects.filter(role_mappings__project=project).distinct()
+            users_matching_filters_queryset = User.objects.filter(role_mappings__project_id=project_id).distinct()
 
             num_active_perspective_filters = 0
 
