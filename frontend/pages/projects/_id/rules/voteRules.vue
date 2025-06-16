@@ -18,6 +18,7 @@
             :project-id="$route.params.id"
             :session-id="session.id"
             :question-index="0"
+            @critical-error="handleCriticalError"
           />
         </v-expansion-panel-content>
       </v-expansion-panel>
@@ -57,6 +58,22 @@
       </v-expansion-panels>
     </v-card>
 
+    <!-- ✅ Mensagem de erro como pop-up central superior -->
+    <transition name="fade">
+      <div v-if="errorMessage" class="error-message">
+        <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
+        {{ errorMessage }}
+      </div>
+    </transition>
+
+    <!-- ✅ Mensagem de sucesso com transição fade -->
+    <transition name="fade">
+      <div v-if="showSnackbar" class="success-message">
+        <v-icon small class="mr-2" color="success">mdi-check-circle</v-icon>
+        {{ snackbarMessage }}
+      </div>
+    </transition>
+
     <!-- Snackbar para exibir mensagem de sucesso -->
     <v-snackbar v-model="snackbar" timeout="3000" top color="success">
       {{ snackbarMessage }}
@@ -71,6 +88,12 @@
         <v-btn text v-bind="attrs" @click="snackbarError = false">Close</v-btn>
       </template>
     </v-snackbar>
+
+    <!-- Remove or comment out the old error dialog
+    <v-dialog v-model="showErrorDialog" max-width="500px" persistent>
+      ... existing dialog content ...
+    </v-dialog>
+    -->
   </v-card>
 </template>
 
@@ -92,6 +115,9 @@ export default {
       snackbarMessage: '',
       snackbarError: false,
       snackbarErrorMessage: '',
+      pageError: null,
+      showErrorDialog: false,
+      errorMessage: '',
     };
   },
   computed: {
@@ -251,6 +277,65 @@ export default {
         this.snackbarError = true;
       }
     },
+
+    handleCriticalError(error) {
+      if (error.code === 503) {
+        this.errorMessage = 'Database unavailable at the moment, please try again later.';
+      } else {
+        this.errorMessage = error.message || 'An error occurred while processing your request.';
+      }
+      
+      // Auto-clear after 5 seconds
+      setTimeout(() => {
+        this.errorMessage = '';
+      }, 5000);
+    },
   },
 };
 </script>
+
+<style scoped>
+.success-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #e6f4ea;
+  color: #2e7d32;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+/* Fade para o snackbar */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #fdecea;
+  color: #b71c1c;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+</style>
