@@ -202,7 +202,32 @@ class PerspectiveAnswerSerializer(serializers.ModelSerializer):
     created_by_username = serializers.SerializerMethodField()
     # If there's no created_at field, you can add a method field to return current time
     created_at = serializers.SerializerMethodField(required=False)
-    
+
+    # NEW: validate to ensure user answers only once per perspective
+    def validate(self, attrs):
+        """Ensure a user can submit only one answer per perspective question."""
+        request = self.context.get('request')
+        user = request.user if request else attrs.get('created_by')
+        # Fallback to created_by in attrs if request user not available
+        created_by = user or attrs.get('created_by')
+        perspective = attrs.get('perspective')
+        project = attrs.get('project')
+
+        if created_by and perspective and project:
+            exists = PerspectiveAnswer.objects.filter(
+                perspective=perspective,
+                project=project,
+                created_by=created_by
+            )
+            # Allow updates on the existing instance (though updates currently unused)
+            if self.instance:
+                exists = exists.exclude(pk=self.instance.pk)
+            if exists.exists():
+                raise serializers.ValidationError(
+                    'Já submeteu uma resposta para esta perspetiva.'
+                )
+        return attrs
+
     class Meta:
         model = PerspectiveAnswer
         fields = [

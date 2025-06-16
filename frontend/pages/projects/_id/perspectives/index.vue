@@ -98,7 +98,10 @@
             Add Question
           </v-btn>
           <v-btn 
-            :disabled="!group.questions.length"
+            :disabled="
+              !group.questions.length ||
+              group.questions.every(q => answeredPerspectiveIds.includes(q.id))
+            "
             small 
             color="success" 
             @click.stop="openAnswerDialog(group)"
@@ -180,8 +183,11 @@
     >
       <v-card>
         <v-card-title class="headline">
-          {{ currentGroup?.questions?.length === 0 ? 'Add First Question (Required)' : 
-          'Add Question' }}
+          {{
+            currentGroup?.questions?.length === 0
+              ? 'Add First Question (Required)'
+              : 'Add Question'
+          }}
         </v-card-title>
         <v-card-text>
           <!-- Campo pergunta obrigatório -->
@@ -277,7 +283,11 @@
         <v-card-text>
           <div v-for="q in currentGroup?.questions" :key="q.id" class="mb-4">
             <h3>{{ q.question }}</h3>
-            <v-radio-group v-model="answers[q.id]" row>
+            <v-radio-group
+              v-model="answers[q.id]"
+              row
+              :disabled="answeredPerspectiveIds.includes(q.id)"
+            >
               <v-radio
                 v-for="opt in (q.data_type === 'boolean' ? ['Yes','No'] : q.options)"
                 :key="opt"
@@ -594,7 +604,6 @@ export default {
 
       knownUsers: [],
 
-
       // Delete Group
       dialogDeleteGroup: false,
       deletingGroup: null,
@@ -608,7 +617,11 @@ export default {
       examples: [],
       selectedExample: null,
       dialogSelectExample: false,
-      optionsErrorMessage: 'Option is required'
+      optionsErrorMessage: 'Option is required',
+
+      // Existing answers by current user
+      answeredPerspectives: {},
+      answeredPerspectiveIds: [],
     }
   },
 
@@ -643,10 +656,43 @@ export default {
       try {
         const res = await this.$services.perspective.listPerspectiveGroups(this.projectId)
         this.perspectiveGroups = res.results || res.data?.results || []
+
+        // After fetching groups, also fetch existing answers for the current user
+        await this.fetchUserPerspectiveAnswers()
       } catch (e) {
         console.error('Erro fetching groups', e)
         this.snackbarErrorMessage = 'Erro ao carregar grupos'
         this.snackbarError = true
+      }
+    },
+
+    async fetchUserPerspectiveAnswers() {
+      /*
+       * Retrieves all perspective answers submitted by the current user so we
+       * can disable questions that were already answered.
+       */
+      try {
+        const service = usePerspectiveApplicationService()
+        const res = await service.listPerspectiveAnswers(this.projectId)
+        let results = []
+        if (Array.isArray(res)) {
+          results = res
+        } else if (res?.results) {
+          results = res.results
+        } else if (res?.data?.results) {
+          results = res.data.results
+        }
+
+        this.answeredPerspectives = {}
+        const myId = this.$store.getters['auth/getUserId']
+        results
+          .filter(ans => ans.created_by === myId)
+          .forEach(ans => {
+            this.answeredPerspectives[ans.perspective] = ans.answer
+          })
+        this.answeredPerspectiveIds = Object.keys(this.answeredPerspectives).map(id => parseInt(id))
+      } catch (err) {
+        console.error('Erro ao obter respostas existentes', err)
       }
     },
 
@@ -804,16 +850,37 @@ export default {
       await this.validateAndSaveQuestion();
     },
 
-    openAnswerDialog(group) {
+    async openAnswerDialog(group) {
+      // Ensure we have the latest answered data
+      await this.fetchUserPerspectiveAnswers()
+
       this.currentGroup = group
+
+      // Initialize answers object
       this.answers = {}
-      
-      // Inicializa as respostas para cada pergunta
+
+      // Determine unanswered questions
+      const unanswered = this.currentGroup.questions.filter(
+        q => !this.answeredPerspectiveIds.includes(q.id)
+      )
+
+      if (unanswered.length === 0) {
+        // All questions already answered
+        this.snackbarErrorMessage = 'Já respondeu a todas as questões deste grupo.'
+        this.snackbarError = true
+        return
+      }
+
+      // Prefill existing answers and set null for unanswered
       this.currentGroup.questions.forEach(q => {
-        this.answers[q.id] = null
+        if (this.answeredPerspectiveIds.includes(q.id)) {
+          this.answers[q.id] = this.answeredPerspectives[q.id]
+        } else {
+          this.answers[q.id] = null
+        }
       })
-      
-      // Abre diretamente o diálogo de respostas
+
+      // Show dialog
       this.dialogAnswer = true
     },
 
@@ -821,11 +888,15 @@ export default {
       this.selectedExample = example
       this.dialogSelectExample = false
       
-      // Inicializa as respostas para cada pergunta
+      // Ensure answers object respects already answered questions
+      this.answers = {}
       this.currentGroup.questions.forEach(q => {
-        this.answers[q.id] = null
+        if (this.answeredPerspectiveIds.includes(q.id)) {
+          this.answers[q.id] = this.answeredPerspectives[q.id]
+        } else {
+          this.answers[q.id] = null
+        }
       })
-      
       this.dialogAnswer = true
     },
 
@@ -850,6 +921,11 @@ export default {
         }
         
         for (const [questionId, answer] of Object.entries(this.answers)) {
+          // Ignore questions the user had already answered previously or left blank
+          if (this.answeredPerspectiveIds.includes(parseInt(questionId))) {
+            continue
+          }
+
           if (answer === null || answer === '') {
             console.log('Skipping empty answer for question:', questionId)
             continue
@@ -901,6 +977,9 @@ export default {
         this.dialogAnswer = false
         this.answers = {} // Clear answers after successful submission
         this.selectedExample = null // Clear selected example
+
+        // Refresh list of answered perspectives
+        await this.fetchUserPerspectiveAnswers()
       } catch (e) {
         console.error('Error saving answers:', e)
         console.error('Error details:', {
