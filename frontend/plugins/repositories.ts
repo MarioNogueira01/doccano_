@@ -45,6 +45,8 @@ import { ApiRuleDiscussionRepository } from '~/repositories/ruleDiscussion/apiRu
 
 import { ApiStatsRepository } from '@/repositories/stats/apiStatsRepository'
 
+import { APIDiscrepancyHistoryRepository } from '@/repositories/discrepancyHistory/apiDiscrepancyHistoryRepository'
+
 export interface Repositories {
   // User
   auth: APIAuthRepository
@@ -113,6 +115,8 @@ export interface Repositories {
   label: APILabelRepository
 
   stats: ApiStatsRepository
+
+  discrepancyHistory: APIDiscrepancyHistoryRepository
 }
 
 declare module 'vue/types/vue' {
@@ -189,7 +193,9 @@ const repositories: Repositories = {
 
   label: new APILabelRepository(),
 
-  stats: new ApiStatsRepository()
+  stats: new ApiStatsRepository(),
+
+  discrepancyHistory: new APIDiscrepancyHistoryRepository()
 }
 
 const plugin: Plugin = (_, inject) => {

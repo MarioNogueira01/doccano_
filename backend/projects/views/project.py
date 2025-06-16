@@ -11,6 +11,8 @@ from django.db.models import Count
 from rest_framework.exceptions import NotFound
 from rest_framework.views import APIView
 from collections import defaultdict
+import os
+from django.db.models import Q
 
 from projects.models import Project, PerspectiveAnswer
 
@@ -38,7 +40,7 @@ class ProjectList(generics.ListCreateAPIView):
         return Project.objects.filter(role_mappings__user=self.request.user)
 
     def perform_create(self, serializer):
-        project = serializer.save(created_by=self.request.user)
+        project = serializer.save(created_by=self.request.user, project_version=1)
         project.add_admin()
 
     def delete(self, request, *args, **kwargs):
@@ -62,6 +64,25 @@ class ProjectDetail(generics.RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "project_id"
     permission_classes = [IsAuthenticated & (IsProjectAdmin | IsProjectStaffAndReadOnly)]
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        old_status = instance.status
+        new_status = request.data.get('status', old_status)
+
+        # Handle version changes based on status changes
+        if new_status != old_status:
+            if new_status == "open" and old_status == "closed":
+                instance.project_version += 1
+            elif new_status == "closed" and old_status == "open":
+                # Ensure version doesn't go below 1
+                instance.project_version = max(1, instance.project_version - 1)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data)
+
 
 class CloneProject(views.APIView):
     permission_classes = [IsAuthenticated & IsProjectAdmin]
@@ -72,7 +93,6 @@ class CloneProject(views.APIView):
         cloned_project = project.clone()
         serializer = ProjectPolymorphicSerializer(cloned_project)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 
 class DiscrepancyAnalysisView(APIView):
@@ -87,13 +107,21 @@ class DiscrepancyAnalysisView(APIView):
             if not examples.exists():
                 raise NotFound("No examples found for this project.")
 
-            # Obter parâmetros de filtro da URL
+            # Get filter parameters from URL
             filter_perspective = request.query_params.get('perspective')
             filter_answer = request.query_params.get('answer')
+            dataset_name = request.query_params.get('dataset_name')
+
+            # Apply dataset filter if specified
+            if dataset_name:
+                examples = examples.filter(
+                    Q(filename__icontains=dataset_name) |
+                    Q(upload_name__icontains=dataset_name)
+                )
 
             discrepancies = []
             for example in examples:
-                # Obter anotações com informações do usuário
+                # Get annotations with user information
                 labels = example.categories.values(
                     'label', 
                     'label__text', 
@@ -104,12 +132,11 @@ class DiscrepancyAnalysisView(APIView):
                 if total_labels == 0:
                     continue
 
-                # Obter usuários que anotaram este exemplo
+                # Get users who annotated this example
                 all_annotators = set(label['user'] for label in labels if label['user'])
                 
-                # Se houver filtro, filtrar os anotadores que deram a resposta específica
+                # If there's a filter, filter annotators who gave the specific answer
                 if filter_perspective and filter_answer:
-                    # Buscar todas as respostas das perspectivas para os anotadores
                     perspective_answers = {}
                     matching_annotators = set()
                     
@@ -125,16 +152,13 @@ class DiscrepancyAnalysisView(APIView):
                             group_id = str(response.perspective.group.id)
                             question_id = str(response.perspective.id)
                             
-                            # Inicializar estrutura se necessário
                             if group_id not in perspective_answers:
                                 perspective_answers[group_id] = {}
                             if question_id not in perspective_answers[group_id]:
                                 perspective_answers[group_id][question_id] = {}
                             
-                            # Adicionar resposta do anotador
                             perspective_answers[group_id][question_id][str(annotator_id)] = response.answer
                             
-                            # Verificar se esta resposta corresponde ao filtro
                             if (question_id == filter_perspective and 
                                 response.answer == filter_answer):
                                 has_matching_answer = True
@@ -142,14 +166,11 @@ class DiscrepancyAnalysisView(APIView):
                         if has_matching_answer:
                             matching_annotators.add(annotator_id)
                     
-                    # Se não houver anotadores que deram a resposta específica, pular este exemplo
                     if not matching_annotators:
                         continue
                         
-                    # Filtrar as anotações para incluir apenas os anotadores que deram a resposta correta
                     labels = [label for label in labels if label['user'] in matching_annotators]
                     
-                    # Recalcular totais e percentagens agregando por label
                     aggregated = defaultdict(int)
                     for label in labels:
                         aggregated[label['label__text']] += label['count']
@@ -162,7 +183,6 @@ class DiscrepancyAnalysisView(APIView):
                     max_percentage = max(percentages.values())
                     annotators = matching_annotators
                 else:
-                    # Agrupar contagens por label para considerar todos os usuários
                     aggregated = defaultdict(int)
                     for label in labels:
                         aggregated[label['label__text']] += label['count']
@@ -175,7 +195,6 @@ class DiscrepancyAnalysisView(APIView):
                     max_percentage = max(percentages.values())
                     annotators = all_annotators
                     
-                    # Buscar respostas das perspectivas para todos os anotadores
                     perspective_answers = {}
                     for annotator_id in annotators:
                         user_responses = PerspectiveAnswer.objects.filter(
@@ -187,23 +206,31 @@ class DiscrepancyAnalysisView(APIView):
                             group_id = str(response.perspective.group.id)
                             question_id = str(response.perspective.id)
                             
-                            # Inicializar estrutura se necessário
                             if group_id not in perspective_answers:
                                 perspective_answers[group_id] = {}
                             if question_id not in perspective_answers[group_id]:
                                 perspective_answers[group_id][question_id] = {}
                             
-                            # Adicionar resposta do anotador
                             perspective_answers[group_id][question_id][str(annotator_id)] = response.answer
+
+                # Get current dataset name
+                current_dataset_name = "N/A"
+                if example.filename and example.filename.name:
+                    current_dataset_name = os.path.basename(example.filename.name)
+                elif example.upload_name:
+                    current_dataset_name = example.upload_name
 
                 discrepancy = {
                     "id": example.id,
                     "text": example.text,
+                    "datasetName": current_dataset_name,
                     "percentages": percentages,
                     "is_discrepancy": max_percentage < discrepancy_threshold,
                     "max_percentage": max_percentage,
                     "perspective_answers": perspective_answers,
-                    "annotators": list(annotators)
+                    "annotators": list(annotators),
+                    "numberOfAnnotations": total_labels,
+                    "date": example.created_at.strftime("%Y-%m-%d %H:%M:%S") if example.created_at else "N/A"
                 }
                 
                 discrepancies.append(discrepancy)
