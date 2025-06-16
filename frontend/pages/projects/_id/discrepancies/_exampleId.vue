@@ -151,7 +151,8 @@ export default {
         const labelMap = Object.fromEntries(labelTypes.map((l) => [l.id, l.text]))
         // fetch member list for username mapping
         const members = await this.$repositories.member.list(this.projectId)
-        const userMap = Object.fromEntries(members.map((m) => [m.id, m.username]))
+        // Mapear id de utilizador -> username correcto (campo `user` no MemberItem)
+        const userMap = Object.fromEntries(members.map((m) => [m.user, m.username]))
 
         // collect label info and group users by label
         const groupedByLabel = {}
@@ -164,7 +165,7 @@ export default {
           groupedByLabel[labelId].users[user].add(labelText)
         })
 
-        // Apenas labels anotadas pelo utilizador atual
+        // Apenas labels anotadas pelo utilizador actual devem aparecer no selector.
         const selfUser = this.getUsername
         const userLabelEntries = Object.entries(groupedByLabel)
           .filter(([_, v]) => v.users[selfUser])
