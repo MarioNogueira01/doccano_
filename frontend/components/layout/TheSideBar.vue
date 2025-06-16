@@ -1,3 +1,4 @@
+<!-- eslint-disable max-len -->
 <template>
   <v-list dense>
     <v-btn
@@ -43,10 +44,24 @@
                   <v-list-item-title>Relatório de Anotação</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                  @click="$router.push(
-                    localePath(`/projects/${$route.params.id}/rules/annotators`))"
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotators`))"
                 >
                   <v-list-item-title>Relatório de Anotadores</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/history-stats`))"
+                >
+                  <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotation-history`))"
+                >
+                  <v-list-item-title>History of Annotations</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/annotation-distribution`))"
+                >
+                  <v-list-item-title>Annotation Distribution</v-list-item-title>
                 </v-list-item>
               </v-expansion-panel-content>
             </v-expansion-panel>
@@ -158,7 +173,7 @@ export default {
           icon: mdiHistory,
           text: 'History of Annotations',
           link: 'annotation-history',
-          isVisible: true
+          isVisible: false
         },
 
         {
@@ -181,9 +196,8 @@ export default {
         },
         // Remova os itens individuais e insira o único item dropdown "Relatórios"
         {
-
           icon: mdiChartBox,
-          text: 'Relatórios',
+          text: 'Reports',
           link: 'rulesReports',
           isVisible: true
         },
@@ -191,7 +205,7 @@ export default {
           icon: mdiDatabase,
           text: 'Discrepâncias',
           link: 'discrepancies',
-          isVisible: true
+          isVisible: false
         },
 
 
@@ -205,11 +219,11 @@ export default {
           icon: mdiChartBar,
           text: 'Votações',
           link: 'votacoes',
-          isVisible: true
+          isVisible: false
         },
         {
           icon: mdiChartBar,
-          text: 'Regras',
+          text: 'Rules',
           link: 'rules',
           isVisible: true
         },
@@ -222,13 +236,7 @@ export default {
           icon: mdiChartPie,
           text: 'Annotation Distribution',
           link: 'annotation-distribution',
-          isVisible: true
-        },
-        {
-          icon: mdiChartBar,
-          text: 'Estatísticas do Histórico',
-          link: 'history-stats',
-          isVisible: true
+          isVisible: false
         }
       ]
       return items.filter(item => item.isVisible)

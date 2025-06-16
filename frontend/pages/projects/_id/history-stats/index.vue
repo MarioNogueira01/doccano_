@@ -112,19 +112,6 @@
       </v-btn>
     </v-card-title>
 
-    <!-- Slider de Progresso -->
-    <v-card-subtitle class="px-6">
-      Progresso (% de exemplos resolvidos)
-      <v-slider
-        v-model="progress"
-        :max="100"
-        :step="10"
-        ticks="always"
-        class="mt-2"
-        @change="applyFilters"
-      />
-    </v-card-subtitle>
-
     <v-divider />
 
     <v-card-text>
@@ -152,6 +139,12 @@
           </v-card>
         </v-col>
       </v-row>
+
+      <!-- Snackbar de erro -->
+      <v-snackbar v-model="dbErrorVisible" :timeout="4000" color="error" top>
+        {{ dbErrorMessage }}
+        <v-btn text @click="dbErrorVisible = false">Fechar</v-btn>
+      </v-snackbar>
     </v-card-text>
   </v-card>
 </template>
@@ -207,14 +200,18 @@ export default {
       before: null,
       dateMenu: false,
       progress: 100,
-      datasetOptions: [{ text: 'Dataset Principal', value: 'default' }],
-      selectedDataset: 'default',
+      // Include a default "all" option so the user can view stats for all datasets
+      datasetOptions: [{ text: 'Todos os Datasets', value: null }],
+      selectedDataset: null,
       versionOptions: [],
       selectedVersion: null,
       // Perspective filters
       perspectiveFilterDialog: false,
       perspectiveGroups: [],
-      selectedPerspectiveAnswers: {}
+      selectedPerspectiveAnswers: {},
+      // Snackbar erro BD
+      dbErrorVisible: false,
+      dbErrorMessage: ''
     }
   },
   computed: {
@@ -236,9 +233,17 @@ export default {
   async mounted () {
     // load datasets
     try {
-      this.datasetOptions = await this.$repositories.stats.datasets(this.projectId)
-      if (this.datasetOptions.length) this.selectedDataset = this.datasetOptions[0].value
-    } catch (e) { /* ignore */ }
+      const remoteDatasets = await this.$repositories.stats.datasets(this.projectId)
+      // Always prepend the "all datasets" option
+      this.datasetOptions = [{ text: 'Todos os Datasets', value: null }, ...remoteDatasets]
+      // Keep previously selected value or default to "all"
+      if (remoteDatasets.length && this.selectedDataset === null) {
+        this.selectedDataset = null
+      }
+    } catch (e) {
+      console.error('Erro ao carregar datasets', e)
+      this.handleDbError(e, 'Erro ao carregar datasets.')
+    }
     this.fetchStats()
 
     // Load perspective groups for filters
@@ -246,11 +251,19 @@ export default {
       const response = await this.$services.perspective.listPerspectiveGroups(this.projectId)
       this.perspectiveGroups = response.results || response.data?.results || []
     } catch (e) {
-      // ignore errors silently for now
       console.error('Failed to load perspective groups', e)
+      this.handleDbError(e, 'Erro ao carregar grupos de perspectiva.')
     }
   },
   methods: {
+    handleDbError (err, fallbackMsg) {
+      if (!err.response || (err.response.status && err.response.status >= 500)) {
+        this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+      } else {
+        this.dbErrorMessage = err.response?.data?.detail || fallbackMsg || 'Ocorreu um erro.'
+      }
+      this.dbErrorVisible = true
+    },
     onDatasetChange () {
       // Reset selected version when dataset changes to avoid dangling version values
       this.selectedVersion = null
@@ -272,20 +285,26 @@ export default {
       return params
     },
     async fetchStats () {
-      // Retrieve raw vote counts
-      const rawStats = await this.$repositories.stats.labelVotes(this.projectId, this.buildParams())
+      try {
+        const params = this.buildParams()
+        const rawStats = await this.$repositories.stats.labelVotes(
+          this.projectId,
+          params
+        )
 
-      // Convert vote counts to percentages for each version
-      this.stats = rawStats.map(s => {
-        const total = s.votes.reduce((acc, v) => acc + v, 0)
-        const percentVotes = total === 0
-          ? s.votes.map(() => 0)
-          : s.votes.map(v => parseFloat(((v / total) * 100).toFixed(2)))
-        return { ...s, votes: percentVotes }
-      })
+        this.stats = rawStats.map(s => {
+          const total = s.votes.reduce((acc, v) => acc + v, 0)
+          const percentVotes = total === 0
+            ? s.votes.map(() => 0)
+            : s.votes.map(v => parseFloat(((v / total) * 100).toFixed(2)))
+          return { ...s, votes: percentVotes }
+        })
 
-      // Populate version options
-      this.versionOptions = this.stats.map(d => d.version).sort((a, b) => a - b)
+        this.versionOptions = this.stats.map(d => d.version).sort((a, b) => a - b)
+      } catch (e) {
+        console.error('Erro ao buscar estatísticas', e)
+        this.handleDbError(e, 'Erro ao buscar estatísticas.')
+      }
     },
     applyFilters () {
       this.fetchStats()

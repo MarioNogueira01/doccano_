@@ -42,10 +42,12 @@ class BaseListAPI(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = self.label_class.objects.filter(example=self.kwargs["example_id"])
-        # Se tiver ?all=1 e o utilizador for admin do projecto, devolve todas as anotações
+        # Se o parâmetro ?all=1 for fornecido, qualquer membro do projecto pode ver todas
+        # as anotações deste exemplo. Caso contrário, se o projecto NÃO for colaborativo,
+        # restringimos às anotações do próprio utilizador.
         show_all = self.request.query_params.get("all") in ["1", "true", "True"]
 
-        if not self.project.collaborative_annotation and not (show_all and self.request.user.is_staff):
+        if not self.project.collaborative_annotation and not show_all:
             queryset = queryset.filter(user=self.request.user)
 
         return queryset

@@ -98,7 +98,10 @@
             Add Question
           </v-btn>
           <v-btn 
-            :disabled="!group.questions.length"
+            :disabled="
+              !group.questions.length ||
+              group.questions.every(q => answeredPerspectiveIds.includes(q.id))
+            "
             small 
             color="success" 
             @click.stop="openAnswerDialog(group)"
@@ -122,8 +125,24 @@
             <v-simple-table>
               <thead>
                 <tr>
-                  <th>Question</th>
-                  <th>Type</th>
+                  <th 
+                    class="sortable" 
+                    @click="sortQuestions(group, 'question')"
+                  >
+                    Question
+                    <v-icon small class="ml-1">
+                      {{ getSortIcon(group, 'question') }}
+                    </v-icon>
+                  </th>
+                  <th 
+                    class="sortable" 
+                    @click="sortQuestions(group, 'data_type')"
+                  >
+                    Type
+                    <v-icon small class="ml-1">
+                      {{ getSortIcon(group, 'data_type') }}
+                    </v-icon>
+                  </th>
                   <th class="text-right">Actions</th>
                 </tr>
               </thead>
@@ -180,8 +199,11 @@
     >
       <v-card>
         <v-card-title class="headline">
-          {{ currentGroup?.questions?.length === 0 ? 'Add First Question (Required)' : 
-          'Add Question' }}
+          {{
+            currentGroup?.questions?.length === 0
+              ? 'Add First Question (Required)'
+              : 'Add Question'
+          }}
         </v-card-title>
         <v-card-text>
           <!-- Campo pergunta obrigatório -->
@@ -271,13 +293,23 @@
    
 
     <!-- Answer Questions Dialog -->
-    <v-dialog v-model="dialogAnswer" max-width="600px">
+    <v-dialog 
+      v-model="dialogAnswer" 
+      max-width="600px"
+      :persistent="hasError"
+      :hide-overlay="hasError"
+      :no-click-animation="hasError"
+    >
       <v-card>
         <v-card-title class="headline">Answer Questions for {{ currentGroup?.name }}</v-card-title>
         <v-card-text>
           <div v-for="q in currentGroup?.questions" :key="q.id" class="mb-4">
             <h3>{{ q.question }}</h3>
-            <v-radio-group v-model="answers[q.id]" row>
+            <v-radio-group
+              v-model="answers[q.id]"
+              row
+              :disabled="answeredPerspectiveIds.includes(q.id)"
+            >
               <v-radio
                 v-for="opt in (q.data_type === 'boolean' ? ['Yes','No'] : q.options)"
                 :key="opt"
@@ -289,7 +321,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer/>
-          <v-btn text @click="dialogAnswer = false">Cancel</v-btn>
+          <v-btn text @click="closeAnswerDialog">Cancel</v-btn>
           <v-btn color="success" text @click="saveAnswers">Submit</v-btn>
         </v-card-actions>
       </v-card>
@@ -511,6 +543,14 @@
       {{ snackbarErrorMessage }}
       <v-btn text @click="snackbarError = false">Close</v-btn>
     </v-snackbar>
+
+    <!-- Error message as pop-up central superior -->
+    <transition name="fade">
+      <div v-if="errorMessage" class="error-message">
+        <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
+        {{ errorMessage }}
+      </div>
+    </transition>
   </v-card>
 </template>
 
@@ -594,7 +634,6 @@ export default {
 
       knownUsers: [],
 
-
       // Delete Group
       dialogDeleteGroup: false,
       deletingGroup: null,
@@ -608,7 +647,16 @@ export default {
       examples: [],
       selectedExample: null,
       dialogSelectExample: false,
-      optionsErrorMessage: 'Option is required'
+      optionsErrorMessage: 'Option is required',
+
+      // Existing answers by current user
+      answeredPerspectives: {},
+      answeredPerspectiveIds: [],
+
+      errorMessage: '',
+      hasError: false,
+
+      sortConfig: {},
     }
   },
 
@@ -634,6 +682,20 @@ export default {
     }
   },
 
+  watch: {
+    errorMessage(newVal) {
+      if (newVal) {
+        this.dialogViewResponses = false;
+      }
+    },
+    
+    hasError(newVal) {
+      if (newVal) {
+        this.dialogViewResponses = false;
+      }
+    }
+  },
+
   mounted() {
     this.fetchPerspectiveGroups()
   },
@@ -643,10 +705,43 @@ export default {
       try {
         const res = await this.$services.perspective.listPerspectiveGroups(this.projectId)
         this.perspectiveGroups = res.results || res.data?.results || []
+
+        // After fetching groups, also fetch existing answers for the current user
+        await this.fetchUserPerspectiveAnswers()
       } catch (e) {
         console.error('Erro fetching groups', e)
         this.snackbarErrorMessage = 'Erro ao carregar grupos'
         this.snackbarError = true
+      }
+    },
+
+    async fetchUserPerspectiveAnswers() {
+      /*
+       * Retrieves all perspective answers submitted by the current user so we
+       * can disable questions that were already answered.
+       */
+      try {
+        const service = usePerspectiveApplicationService()
+        const res = await service.listPerspectiveAnswers(this.projectId)
+        let results = []
+        if (Array.isArray(res)) {
+          results = res
+        } else if (res?.results) {
+          results = res.results
+        } else if (res?.data?.results) {
+          results = res.data.results
+        }
+
+        this.answeredPerspectives = {}
+        const myId = this.$store.getters['auth/getUserId']
+        results
+          .filter(ans => ans.created_by === myId)
+          .forEach(ans => {
+            this.answeredPerspectives[ans.perspective] = ans.answer
+          })
+        this.answeredPerspectiveIds = Object.keys(this.answeredPerspectives).map(id => parseInt(id))
+      } catch (err) {
+        console.error('Erro ao obter respostas existentes', err)
       }
     },
 
@@ -704,7 +799,11 @@ export default {
         this.expandedPanel = this.perspectiveGroups.findIndex(gr => gr.id === groupId);
       } catch (err) {
         console.error(err);
-        this.snackbarErrorMessage = err.response?.data?.detail || 'Error creating group';
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = err.response?.data?.detail || 'Error creating group';
+        }
         this.snackbarError = true;
       }
     },
@@ -795,7 +894,11 @@ export default {
         this.snackbar = true;
       } catch (e) {
         console.error(e);
-        this.snackbarErrorMessage = e.response?.data?.detail || 'Error adding question';
+        if (!e.response || (e.response.status && e.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = e.response?.data?.detail || 'Error adding question';
+        }
         this.snackbarError = true;
       }
     },
@@ -804,16 +907,37 @@ export default {
       await this.validateAndSaveQuestion();
     },
 
-    openAnswerDialog(group) {
+    async openAnswerDialog(group) {
+      // Ensure we have the latest answered data
+      await this.fetchUserPerspectiveAnswers()
+
       this.currentGroup = group
+
+      // Initialize answers object
       this.answers = {}
-      
-      // Inicializa as respostas para cada pergunta
+
+      // Determine unanswered questions
+      const unanswered = this.currentGroup.questions.filter(
+        q => !this.answeredPerspectiveIds.includes(q.id)
+      )
+
+      if (unanswered.length === 0) {
+        // All questions already answered
+        this.snackbarErrorMessage = 'Já respondeu a todas as questões deste grupo.'
+        this.snackbarError = true
+        return
+      }
+
+      // Prefill existing answers and set null for unanswered
       this.currentGroup.questions.forEach(q => {
-        this.answers[q.id] = null
+        if (this.answeredPerspectiveIds.includes(q.id)) {
+          this.answers[q.id] = this.answeredPerspectives[q.id]
+        } else {
+          this.answers[q.id] = null
+        }
       })
-      
-      // Abre diretamente o diálogo de respostas
+
+      // Show dialog
       this.dialogAnswer = true
     },
 
@@ -821,15 +945,27 @@ export default {
       this.selectedExample = example
       this.dialogSelectExample = false
       
-      // Inicializa as respostas para cada pergunta
+      // Ensure answers object respects already answered questions
+      this.answers = {}
       this.currentGroup.questions.forEach(q => {
-        this.answers[q.id] = null
+        if (this.answeredPerspectiveIds.includes(q.id)) {
+          this.answers[q.id] = this.answeredPerspectives[q.id]
+        } else {
+          this.answers[q.id] = null
+        }
       })
-      
       this.dialogAnswer = true
     },
 
+    closeAnswerDialog() {
+      this.dialogAnswer = false
+      this.hasError = false
+      this.answers = {}
+      this.selectedExample = null
+    },
+
     async saveAnswers() {
+      this.hasError = false
       try {
         const answersToSave = []
         
@@ -850,6 +986,11 @@ export default {
         }
         
         for (const [questionId, answer] of Object.entries(this.answers)) {
+          // Ignore questions the user had already answered previously or left blank
+          if (this.answeredPerspectiveIds.includes(parseInt(questionId))) {
+            continue
+          }
+
           if (answer === null || answer === '') {
             console.log('Skipping empty answer for question:', questionId)
             continue
@@ -874,6 +1015,7 @@ export default {
           console.error('No valid answers to save')
           this.snackbarErrorMessage = 'Please answer at least one question'
           this.snackbarError = true
+          this.hasError = true
           return
         }
         
@@ -898,9 +1040,8 @@ export default {
         
         this.snackbarMessage = 'Answers submitted successfully!'
         this.snackbar = true
-        this.dialogAnswer = false
-        this.answers = {} // Clear answers after successful submission
-        this.selectedExample = null // Clear selected example
+        this.closeAnswerDialog()
+        await this.fetchUserPerspectiveAnswers()
       } catch (e) {
         console.error('Error saving answers:', e)
         console.error('Error details:', {
@@ -910,6 +1051,7 @@ export default {
         })
         this.snackbarErrorMessage = e.response?.data?.detail || e.message || 'Error saving answers'
         this.snackbarError = true
+        this.hasError = true
       }
     },
 
@@ -930,7 +1072,6 @@ export default {
     async showQuestionResponses(question) {
       this.viewingQuestion = question;
       this.loadingResponses = true;
-      this.dialogViewResponses = true;
       
       try {
         const service = usePerspectiveApplicationService()
@@ -940,10 +1081,15 @@ export default {
         );
         this.questionResponses = response.results || [];
         this.voteCounts = this.calculateVoteCounts(this.questionResponses);
+        
+        // Only open dialog if no errors occurred
+        if (!this.errorMessage && !this.hasError) {
+          this.dialogViewResponses = true;
+        }
       } catch (error) {
         console.error('Error fetching responses:', error);
-        this.snackbarErrorMessage = 'Failed to fetch responses';
-        this.snackbarError = true;
+        this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        this.hasError = true;
       } finally {
         this.loadingResponses = false;
       }
@@ -1009,8 +1155,14 @@ export default {
         this.snackbarMessage = 'Question updated successfully'
         this.snackbar = true
       } catch (e) {
-        console.error(e)
-        this.snackbarErrorMessage = e.response?.data?.detail || 'Error updating question'
+        if (!e.response || (e.response.status && e.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else if (e.response.status === 400 && e.response.data?.question) {
+          // Erro de validação: nome da questão duplicado
+          this.snackbarErrorMessage = 'esse nome da questao ja esta a ser usado';
+        } else {
+          this.snackbarErrorMessage = e.response?.data?.detail || 'Error updating question';
+        }
         this.snackbarError = true
       }
     },
@@ -1066,17 +1218,24 @@ export default {
 
     // Update the openComparisonDialog method to fetch user info
     async openComparisonDialog(params) {
-      this.selectedDocumentId = params.documentId;
-      this.comparisonUsers = {
-        user1: params.user1 || this.$store.getters.getUserId,
-        user2: params.user2
-      };
-      
-      // Try to fetch user info before showing the dialog
-      await this.fetchBasicUserInfo();
-      
-      // Now show the dialog
-      this.dialogCompare = true;
+      try {
+        this.selectedDocumentId = params.documentId;
+        this.comparisonUsers = {
+          user1: params.user1 || this.$store.getters.getUserId,
+          user2: params.user2
+        };
+        
+        // Try to fetch user info before showing the dialog
+        await this.fetchBasicUserInfo();
+        
+        // Show the dialog
+        this.dialogCompare = true;
+      } catch (error) {
+        console.error('Error opening comparison dialog:', error);
+        this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        this.hasError = true;
+        this.dialogCompare = false; // Ensure dialog doesn't open on error
+      }
     },
 
     async hasGroupResponses(group) {
@@ -1172,10 +1331,94 @@ export default {
         this.snackbarError = true;
       }
     },
+
+    sortQuestions(group, column) {
+      if (!this.sortConfig[group.id]) {
+        this.sortConfig[group.id] = {
+          column: 'question',
+          direction: 'asc'
+        }
+      }
+
+      // If clicking the same column, toggle direction
+      if (this.sortConfig[group.id].column === column) {
+        this.sortConfig[group.id].direction = 
+          this.sortConfig[group.id].direction === 'asc' ? 'desc' : 'asc'
+      } else {
+        // If clicking a new column, set it as the sort column
+        this.sortConfig[group.id] = {
+          column,
+          direction: 'asc'
+        }
+      }
+
+      // Sort the questions
+      group.questions.sort((a, b) => {
+        const aValue = a[column]
+        const bValue = b[column]
+        
+        if (this.sortConfig[group.id].direction === 'asc') {
+          return aValue.localeCompare(bValue)
+        } else {
+          return bValue.localeCompare(aValue)
+        }
+      })
+    },
+
+    getSortIcon(group, column) {
+      if (!this.sortConfig[group.id] || this.sortConfig[group.id].column !== column) {
+        return 'mdi-sort'
+      }
+      return this.sortConfig[group.id].direction === 'asc' 
+        ? 'mdi-sort-ascending' 
+        : 'mdi-sort-descending'
+    },
   }
 }
 </script>
 
 <style scoped>
 /* os teus estilos continuam aqui */
+.success-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #e6f4ea;
+  color: #2e7d32;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #fdecea;
+  color: #b71c1c;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
 </style>

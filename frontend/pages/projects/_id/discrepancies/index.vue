@@ -10,6 +10,15 @@
             single-line
             hide-details
           ></v-text-field>
+          <!-- Bloco abaixo do search para definir o threshold -->
+          <v-text-field
+            v-model.number="thresholdPercentage"
+            label="Threshold Percentage"
+            type="number"
+            prepend-icon="mdi-percent"
+            single-line
+            hide-details
+          ></v-text-field>
         </v-col>
         <v-col cols="12" sm="6" class="text-right">
           <v-btn-toggle
@@ -26,6 +35,10 @@
               Ascending
             </v-btn>
           </v-btn-toggle>
+          <!-- Botão Gerar Automaticamente -->
+          <v-btn color="primary" class="ml-2" @click="refreshTable">
+            Gerar Automaticamente
+          </v-btn>
         </v-col>
       </v-row>
 
@@ -191,24 +204,61 @@
 
     <!-- Data Table -->
     <v-data-table
-     :headers="headers"
-     :items="flattenedDiscrepancies"
-     :search="search"
-     :loading="loading"
-     :items-per-page="10"
-     class="elevation-1"
+      :headers="headers"
+      :items="filteredDiscrepancies"
+      :search="search"
+      :loading="loading"
+      :items-per-page="10"
+      class="elevation-1"
     >
-      <template #[`item.status`]="{ item }">
-        <v-chip
-          :color="item.status === 'Agreement' ? 'success' : 'error'"
-          x-small
-          dark
-        >
-        {{ item.status }}
-    </v-chip>
-  </template>
-</v-data-table>
+      <template #[`item.text`]="{ item }">
+        <div class="text-truncate" style="max-width: 300px;">
+          {{ item.text }}
+        </div>
+      </template>
 
+      <template #[`item.labels`]="{ item }">
+        <v-simple-table dense class="dataset-table">
+          <template #default>
+            <thead>
+              <tr>
+                <th class="dataset-header">Dataset Label</th>
+                <th class="dataset-header">Percentage</th>
+                <th class="dataset-header">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(percentage, label) in sortedPercentages(item.percentages)" 
+                  :key="label" class="dataset-row">
+                <td class="dataset-cell">{{ label }}</td>
+                <td class="dataset-cell">{{ percentage.toFixed(2) }}%</td>
+                <td class="dataset-cell">
+                  <v-chip
+                    :color="getStatus(item, label, percentage) ===
+                     'Agreement' ? 'success' : 'error'"
+                    small
+                    class="status-chip"
+                    style="cursor: pointer;"
+                    @click="onStatusClick(item, label, percentage)"
+                  >
+                    {{ getStatus(item, label, percentage) }}
+                  </v-chip>
+                </td>
+              </tr>
+            </tbody>
+          </template>
+        </v-simple-table>
+      </template>
+
+      <template #[`item.is_discrepancy`]="{ item }">
+        <v-chip
+          :color="overallStatus(item) === 'Agreement' ? 'success' : 'error'"
+          small
+          class="status-chip"
+        >
+          {{ overallStatus(item) }}
+        </v-chip>
+      </template>
 
       <template #[`item.max_percentage`]="{ item }">
         <span class="percentage-value">{{ item.max_percentage.toFixed(2) }}%</span>
@@ -217,11 +267,27 @@
       <!-- Novo botão Discussão -->
       <template #[`item.actions`]="{ item }">
         <v-btn small color="primary" @click="goToDiscussion(item)">
-          Discussão
+          Discussion
         </v-btn>
       </template>
     </v-data-table>
 
+    <!-- Diálogo de Confirmação -->
+    <v-dialog v-model="showStatusDialog" max-width="400px">
+      <v-card>
+        <v-card-title class="headline">
+          Confirm State Change
+        </v-card-title>
+        <v-card-text>
+          Deseja alterar o status da discrepância?
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" text @click="confirmChangeStatus">Sim</v-btn>
+          <v-btn color="secondary" text @click="showStatusDialog = false">Não</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Snackbars -->
     <v-snackbar v-model="snackbar" timeout="3000" top color="success">
@@ -260,15 +326,18 @@ export default {
       loading: true,
       sortOrder: 'desc',
       search: '',
-
+      thresholdPercentage: 50, // novo campo para o threshold
       headers: [
         { text: 'Text', value: 'text', sortable: true },
         { text: 'Dataset Labels', value: 'labels', sortable: false },
         { text: 'Overall Status', value: 'is_discrepancy', sortable: true },
         { text: 'Max Percentage', value: 'max_percentage', sortable: true },
         { text: 'Discussão', value: 'actions', sortable: false }
-      ]
-
+      ],
+      showStatusDialog: false,
+      selectedDiscrepancy: null,
+      selectedDatasetLabel: '',
+      selectedPercentage: null
     };
   },
 
@@ -276,20 +345,6 @@ export default {
     projectId() {
       return this.$route.params.id;
     },
-
-    flattenedDiscrepancies() {
-      return this.filteredDiscrepancies.flatMap(item => {
-        return Object.entries(item.percentages).map(([label, percentage]) => {
-          return {
-            text: item.text,
-            label,
-            percentage: percentage.toFixed(2),
-            status: percentage >= 70 ? 'Agreement' : 'Disagreement'
-          };
-      });
-    });
-  },
-
     sortedDiscrepancies() {
       return [...this.discrepancies].sort((a, b) => {
         return this.sortOrder === 'asc' ? a.max_percentage - b.max_percentage : 
@@ -388,12 +443,6 @@ export default {
     }
   },
 
-  async created() {
-    this.loadSelectedAnswers();
-    await this.fetchDiscrepancies();
-    await this.fetchPerspectiveGroups();
-  },
-
   watch: {
     selectedAnswers: {
       handler(newVal) {
@@ -401,6 +450,12 @@ export default {
       },
       deep: true
     }
+  },
+
+  async created() {
+    this.loadSelectedAnswers();
+    await this.fetchDiscrepancies();
+    await this.fetchPerspectiveGroups();
   },
 
   methods: {
@@ -418,10 +473,15 @@ export default {
     async fetchDiscrepancies() {
       try {
         const response = await this.$services.discrepancy.listDiscrepancie(this.projectId);
+        console.log('Discrepancies fetched:', response);
         this.discrepancies = response.discrepancies || [];
       } catch (err) {
         console.error('Error fetching discrepancies:', err);
-        this.snackbarErrorMessage = 'Failed to fetch discrepancies. Please try again later.';
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = 'Failed to fetch discrepancies. Please try again later.';
+        }
         this.snackbarError = true;
       } finally {
         this.loading = false;
@@ -435,7 +495,11 @@ export default {
         this.perspectiveGroups = response.results || [];
       } catch (err) {
         console.error('Error fetching perspective groups:', err);
-        this.snackbarErrorMessage = 'Failed to fetch perspective groups.';
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = 'Failed to fetch perspective groups.';
+        }
         this.snackbarError = true;
       }
     },
@@ -466,6 +530,84 @@ export default {
 
     goToDiscussion(item) {
       this.$router.push(this.localePath(`/projects/${this.projectId}/discrepancies/${item.id}`))
+    },
+
+    onStatusClick(discrepancy, label, percentage) {
+      this.selectedDiscrepancy = discrepancy;
+      this.selectedDatasetLabel = label;
+      this.selectedPercentage = percentage;
+      this.showStatusDialog = true;
+      console.log("Clicou no status da discrepância:", discrepancy, "para o dataset:", label);
+    },
+
+    confirmChangeStatus() {
+      if (this.selectedDiscrepancy && this.selectedDatasetLabel) {
+        if (!this.selectedDiscrepancy.statusOverrides) {
+          this.$set(this.selectedDiscrepancy, 'statusOverrides', {});
+        }
+        const currentStatus = this.getStatus(
+          this.selectedDiscrepancy,
+          this.selectedDatasetLabel,
+          this.selectedPercentage
+        );
+        const newStatus =
+          currentStatus === 'Agreement' ? 'Disagreement' : 'Agreement';
+        this.$set(
+          this.selectedDiscrepancy.statusOverrides,
+          this.selectedDatasetLabel,
+          newStatus
+        );
+
+        // Recalcula o max_percentage considerando apenas os datasets com "Disagreement"
+        const disagreementPercentages = Object.entries(
+          this.selectedDiscrepancy.percentages
+        )
+          .filter(([label, pct]) => 
+            this.getStatus(this.selectedDiscrepancy, label, pct) === 'Disagreement'
+          )
+          .map(([, pct]) => pct);
+        const newMax =
+          disagreementPercentages.length > 0
+            ? Math.max(...disagreementPercentages)
+            : 0;
+        this.selectedDiscrepancy.max_percentage = newMax;
+
+        this.snackbarMessage =
+          'Status atualizado e max percentage recalculado';
+        this.snackbar = true;
+      }
+      this.showStatusDialog = false;
+    },
+
+    getStatus(item, label, percentage) {
+      if (!item.statusOverrides) {
+        this.$set(item, 'statusOverrides', {});
+      }
+      return item.statusOverrides[label] || (percentage >= 70 ? 'Agreement' : 'Disagreement');
+    },
+
+    // Novo método para determinar o Overall Status com base no threshold
+    overallStatus(item) {
+      return item.max_percentage < this.thresholdPercentage
+        ? 'Agreement'
+        : 'Disagreement';
+    },
+
+    refreshTable() {
+      this.loading = true;
+      Promise.all([
+        this.fetchDiscrepancies(),
+        this.fetchPerspectiveGroups()
+      ])
+        .then(() => {
+          this.snackbarMessage = 'Discrepancias Geradas Automáticamente';
+          this.snackbar = true;
+        })
+        .catch((err) => {
+          console.error('Erro ao atualizar tabela:', err);
+          this.snackbarErrorMessage = 'Erro ao atualizar tabela';
+          this.snackbarError = true;
+        });
     }
   }
 };

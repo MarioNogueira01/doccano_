@@ -1,5 +1,13 @@
 <template>
   <v-card>
+    <!-- Error message as pop-up central superior -->
+    <transition name="fade">
+      <div v-if="errorMessage" class="error-message">
+        <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
+        {{ errorMessage }}
+      </div>
+    </transition>
+
     <v-card-title v-if="isProjectAdmin">
       <action-menu
         @upload="$router.push('dataset/import')"
@@ -65,6 +73,7 @@
           :project-users="projectUsers"
           @cancel="dialogCompareForm = false"
           @compare="openComparisonDialog"
+          @error="handleCompareError"
         />
       </v-dialog>
     </v-card-title>
@@ -111,53 +120,53 @@
       @unassign="unassign"
     />
 <v-dialog v-model="dialogCompare" max-width="90%" height="80vh" content-class="comparison-dialog">
-  <v-card class="comparison-card">
-    <v-toolbar dark color="primary" dense>
-      <v-btn icon @click="dialogCompare = false">
-        <v-icon>mdi-close</v-icon>
-      </v-btn>
-      <v-toolbar-title>Annotation Comparison</v-toolbar-title>
-      <v-spacer></v-spacer>
-      <v-chip small class="mr-2">
-        <v-avatar left>
-          <v-icon x-small>mdi-file-document</v-icon>
-        </v-avatar>
-        Document #{{ selectedDocumentId }}
-      </v-chip>
-    </v-toolbar>
-    
-    <!-- Comparison component -->
-    <comparison-view
-      v-if="dialogCompare"
-      :project-id="projectId"
-      :document-id="selectedDocumentId"
-      :user1-id="comparisonUsers.user1"
-      :user2-id="comparisonUsers.user2"
-      :labels="project && project.labels ? project.labels : []"
-      :users="projectUsers || []"
-      @close="dialogCompare = false"
-      @no-annotations="handleNoAnnotations"
-    />
-  </v-card>
-</v-dialog>
+      <v-card class="comparison-card">
+        <v-toolbar dark color="primary" dense>
+          <v-btn icon @click="dialogCompare = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+          <v-toolbar-title>Annotation Comparison</v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-chip small class="mr-2">
+            <v-avatar left>
+              <v-icon x-small>mdi-file-document</v-icon>
+            </v-avatar>
+            Document #{{ selectedDocumentId }}
+          </v-chip>
+        </v-toolbar>
+        
+        <!-- Comparison component -->
+        <comparison-view
+          v-if="dialogCompare"
+          :project-id="projectId"
+          :document-id="selectedDocumentId"
+          :user1-id="comparisonUsers.user1"
+          :user2-id="comparisonUsers.user2"
+          :labels="project && project.labels ? project.labels : []"
+          :users="projectUsers || []"
+          @close="dialogCompare = false"
+          @no-annotations="handleNoAnnotations"
+        />
+      </v-card>
+    </v-dialog>
 
-<!-- Add this for showing no annotations message -->
-<v-snackbar
-  v-model="noAnnotationsSnackbar"
-  :timeout="5000"
-  color="warning"
->
-  {{ noAnnotationsMessage }}
-  <template #action="{ attrs }">
-    <v-btn
-      text
-      v-bind="attrs"
-      @click="noAnnotationsSnackbar = false"
+    <!-- Add this for showing no annotations message -->
+    <v-snackbar
+      v-model="noAnnotationsSnackbar"
+      :timeout="5000"
+      color="warning"
     >
-      Close
-    </v-btn>
-  </template>
-</v-snackbar>
+      {{ noAnnotationsMessage }}
+      <template #action="{ attrs }">
+        <v-btn
+          text
+          v-bind="attrs"
+          @click="noAnnotationsSnackbar = false"
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-card>
 </template>
 
@@ -227,7 +236,12 @@ export default Vue.extend({
       dialogEdit: false,
       editedItem: {} as ExampleDTO,
       page: 1,
+
       search: '', // Initialize search property
+
+      errorMessage: '',
+      hasError: false,
+
     }
   },
 
@@ -275,7 +289,21 @@ export default Vue.extend({
   watch: {
     '$route.query': _.debounce(function () {
       this.$fetch()
-    }, 1000)
+    }, 1000),
+    
+    errorMessage(newVal) {
+      if (newVal) {
+        this.dialogCompare = false;
+        this.dialogCompareForm = false;
+      }
+    },
+    
+    hasError(newVal) {
+      if (newVal) {
+        this.dialogCompare = false;
+        this.dialogCompareForm = false;
+      }
+    }
   },
 
   async created() {
@@ -359,8 +387,15 @@ export default Vue.extend({
       this.item = await this.$services.example.list(this.projectId, this.$route.query)
     },
 
-    openComparisonDialog(users:
-     { user1: number; user2: number; documentId: number }) {
+
+    openComparisonDialog(this: NuxtAppOptions, 
+      users: { user1: number; user2: number; documentId: number }) {
+      if (this.errorMessage || this.hasError) {
+        this.dialogCompare = false;
+        return;
+      }
+      
+
       this.selectedDocumentId = users.documentId;
       this.comparisonUsers.user1 = users.user1;
       this.comparisonUsers.user2 = users.user2;
@@ -368,10 +403,16 @@ export default Vue.extend({
       this.dialogCompare = true;
     },
 
-    handleNoAnnotations(message: string) {
-      this.noAnnotationsMessage = message;
-      this.noAnnotationsSnackbar = true;
-      this.dialogCompare = false;
+
+    handleNoAnnotations(event) {
+      if (!event.response || (event.response.status && event.response.status >= 500)) {
+        this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        setTimeout(() => { this.errorMessage = ''; }, 5000);
+      } else {
+        this.noAnnotationsMessage = event.message;
+        this.noAnnotationsSnackbar = true;
+      }
+
     },
 
     openVotePage(item: ExampleDTO) {
@@ -396,6 +437,7 @@ export default Vue.extend({
         console.log(e)
       }
     },
+
     async updateProjectStatus(newStatus: string) {
       try {
         await this.$repositories.project.update(this.projectId, { status: newStatus });
@@ -420,6 +462,14 @@ export default Vue.extend({
       const currentStatus = this.project.status;
       const newStatus = currentStatus === 'open' ? 'closed' : 'open';
       await this.updateProjectStatus(newStatus);
+
+
+    handleCompareError(errorMessage) {
+      this.errorMessage = errorMessage;
+      this.hasError = true;
+      this.dialogCompareForm = false;
+      this.dialogCompare = false;
+
     },
   }
 })
@@ -452,5 +502,32 @@ export default Vue.extend({
 /* Keep your existing styles for non-fullscreen dialogs */
 ::v-deep .v-dialog:not(.v-dialog--fullscreen) {
   width: 800px;
+}
+
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #fdecea;
+  color: #b71c1c;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
