@@ -251,18 +251,15 @@ export default {
       availableLabels: [],
       selectedLabels: [],
       perspectiveGroups: [],
-      selectedAnswers: {}
+      selectedAnswers: {},
+      perspectiveAnswers: [] // Guarda as respostas de perspectiva
     };
   },
 
   computed: {
-    // Retorna true quando ao menos um filtro de perspectiva está selecionado
     hasActiveFilters() {
       return Object.values(this.selectedAnswers).some(value => {
-        if (Array.isArray(value)) {
-          return value.length > 0;
-        }
-        return value !== null && value !== undefined;
+        return Array.isArray(value) ? value.length > 0 : value !== null && value !== undefined;
       });
     }
   },
@@ -271,22 +268,87 @@ export default {
     await this.fetchAnnotators();
     await this.fetchLabels();
     await this.fetchPerspectiveGroups();
+    await this.fetchPerspectiveAnswers(); // Busca as respostas de perspectiva
   },
 
   methods: {
+    // Função auxiliar para comparação profunda
+    compareValues(a, b) {
+      if (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null) {
+        return JSON.stringify(a) === JSON.stringify(b);
+      }
+      return a === b;
+    },
+
     filterAnnotators() {
       let data = this.annotatorsData;
+
+      // Filtra por nomes (anotadores)
       if (this.selectedAnnotators.length > 0) {
         data = data.filter(annotator =>
           this.selectedAnnotators.includes(annotator.name)
         );
       }
+
+      // Filtra por labels
       if (this.selectedLabels.length > 0) {
         data = data.filter(annotator =>
-          this.selectedLabels.some(label => (annotator.labels || []).includes(label))
+          this.selectedLabels.some(label =>
+            (annotator.labels || []).includes(label)
+          )
         );
       }
-      // Caso deseje filtrar também pelas perspectivas, implemente aqui
+
+      // Filtra por respostas de perspectiva se houver filtros ativos:
+      if (this.hasActiveFilters) {
+        data = data.filter(annotator => {
+          let matchFound = false;
+          for (const [questionId, selectedValue] of Object.entries(this.selectedAnswers)) {
+            console.log(`Filtro: Pergunta ID ${questionId}, valor selecionado:`, selectedValue);
+            if (
+              selectedValue === null ||
+              selectedValue === undefined ||
+              (Array.isArray(selectedValue) && selectedValue.length === 0)
+            ) {
+              continue;
+            }
+            // Procura todas as respostas deste anotador para a questão
+            const answers = this.perspectiveAnswers.filter(ans =>
+              ans.created_by_username === annotator.name &&
+              parseInt(questionId) === ans.perspective
+            );
+            if (answers.length === 0) {
+              console.log(`Anotador ${annotator.name} - Questão ${questionId}: sem respostas.`);
+              continue;
+            }
+            // Se o filtro for boolean, converte para "Yes"/"No"
+            const convertedSelectedValue = 
+              typeof selectedValue === 'boolean' ? (selectedValue ? "Yes" : "No") : selectedValue;
+            
+            // Verifica se pelo menos uma resposta bate com o filtro
+            for (const ans of answers) {
+              console.log(`Anotador ${annotator.name} - Questão ${questionId}: resposta encontrada:`, ans.answer);
+              if (Array.isArray(convertedSelectedValue)) {
+                if (convertedSelectedValue.some(val => this.compareValues(val, ans.answer))) {
+                  console.log(`Anotador ${annotator.name} - Questão ${questionId}: resposta=${ans.answer} => MATCH`);
+                  matchFound = true;
+                  break;
+                } else {
+                  console.log(`Anotador ${annotator.name} - Questão ${questionId}: resposta=${ans.answer} => NÃO bate`);
+                }
+              } else if (this.compareValues(ans.answer, convertedSelectedValue)) {
+                console.log(`Anotador ${annotator.name} - Questão ${questionId}: resposta=${ans.answer} => MATCH`);
+                matchFound = true;
+                break;
+              } else {
+                console.log(`Anotador ${annotator.name} - Questão ${questionId}: resposta=${ans.answer} => NÃO bate`);
+              }
+            }
+            if (matchFound) break;
+          }
+          return matchFound;
+        });
+      }
 
       this.filteredAnnotatorsData = data;
       console.log("Anotadores filtrados:", this.filteredAnnotatorsData);
@@ -299,11 +361,13 @@ export default {
         console.log("ID do projeto atual:", projectId);
         const response = await this.$services.project.getMembers(projectId);
         console.log("Membros recebidos:", response);
+        // Inicialmente não há respostas de perspectiva
         this.annotatorsData = response.map(member => ({
           name: member.username,
           annotations: member.annotations || [],
           datasets: member.datasets || [],
-          labels: [] // Inicialmente vazio
+          labels: [],
+          perspective_answers: {} // será preenchido depois
         }));
         this.filteredAnnotatorsData = this.annotatorsData;
       } catch (error) {
@@ -353,11 +417,53 @@ export default {
       }
     },
 
+    // Novo método para buscar as respostas de perspectiva
+    async fetchPerspectiveAnswers() {
+      try {
+        const projectId = this.$route.params.id;
+        const service = usePerspectiveApplicationService();
+        const response = await service.listPerspectiveAnswers(projectId);
+        // Ajusta a extração conforme a estrutura da resposta
+        this.perspectiveAnswers = Array.isArray(response)
+          ? response
+          : response.results || [];
+        console.log("Respostas de perspectiva recebidas:", this.perspectiveAnswers);
+
+        // Associa as respostas aos anotadores usando "created_by_username"
+        this.annotatorsData = this.annotatorsData.map(annotator => {
+          // Filtra as respostas referentes ao anotador
+          const answers = this.perspectiveAnswers.filter(
+            answer => answer.created_by_username === annotator.name
+          );
+          // Organiza as respostas num objeto, usando por exemplo o ID da perspetiva
+          const perspective_answers = {};
+          answers.forEach(ans => {
+            // Se a propriedade 'perspective' já for o ID correto para filtrar
+            const key = ans.perspective; // ou converta para string se necessário
+            perspective_answers[key] = ans.answer;
+          });
+          console.log(`Respostas de perspectiva para ${annotator.name}:`, perspective_answers);
+          return {
+            ...annotator,
+            perspective_answers
+          };
+        });
+
+        // Atualiza a tabela filtrada, se necessário
+        this.filteredAnnotatorsData = this.annotatorsData;
+      } catch (error) {
+        console.error("Erro ao buscar respostas de perspectiva:", error);
+        this.$store.dispatch('notification/open', {
+          message: 'Erro ao carregar respostas de perspectiva.',
+          type: 'error'
+        });
+      }
+    },
+
     applyFilters() {
       this.filterAnnotators();
     },
 
-    // Método para limpar as perspectivas selecionadas
     clearFilters() {
       console.log('Limpando filtros de perspectiva...');
       this.selectedAnswers = {};
