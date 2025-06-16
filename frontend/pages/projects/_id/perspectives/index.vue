@@ -277,7 +277,13 @@
    
 
     <!-- Answer Questions Dialog -->
-    <v-dialog v-model="dialogAnswer" max-width="600px">
+    <v-dialog 
+      v-model="dialogAnswer" 
+      max-width="600px"
+      :persistent="hasError"
+      :hide-overlay="hasError"
+      :no-click-animation="hasError"
+    >
       <v-card>
         <v-card-title class="headline">Answer Questions for {{ currentGroup?.name }}</v-card-title>
         <v-card-text>
@@ -299,7 +305,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer/>
-          <v-btn text @click="dialogAnswer = false">Cancel</v-btn>
+          <v-btn text @click="closeAnswerDialog">Cancel</v-btn>
           <v-btn color="success" text @click="saveAnswers">Submit</v-btn>
         </v-card-actions>
       </v-card>
@@ -521,6 +527,14 @@
       {{ snackbarErrorMessage }}
       <v-btn text @click="snackbarError = false">Close</v-btn>
     </v-snackbar>
+
+    <!-- Error message as pop-up central superior -->
+    <transition name="fade">
+      <div v-if="errorMessage" class="error-message">
+        <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
+        {{ errorMessage }}
+      </div>
+    </transition>
   </v-card>
 </template>
 
@@ -622,6 +636,9 @@ export default {
       // Existing answers by current user
       answeredPerspectives: {},
       answeredPerspectiveIds: [],
+
+      errorMessage: '',
+      hasError: false,
     }
   },
 
@@ -644,6 +661,20 @@ export default {
 
     responseStats() {
       return {};
+    }
+  },
+
+  watch: {
+    errorMessage(newVal) {
+      if (newVal) {
+        this.dialogViewResponses = false;
+      }
+    },
+    
+    hasError(newVal) {
+      if (newVal) {
+        this.dialogViewResponses = false;
+      }
     }
   },
 
@@ -908,7 +939,15 @@ export default {
       this.dialogAnswer = true
     },
 
+    closeAnswerDialog() {
+      this.dialogAnswer = false
+      this.hasError = false
+      this.answers = {}
+      this.selectedExample = null
+    },
+
     async saveAnswers() {
+      this.hasError = false
       try {
         const answersToSave = []
         
@@ -958,6 +997,7 @@ export default {
           console.error('No valid answers to save')
           this.snackbarErrorMessage = 'Please answer at least one question'
           this.snackbarError = true
+          this.hasError = true
           return
         }
         
@@ -982,11 +1022,7 @@ export default {
         
         this.snackbarMessage = 'Answers submitted successfully!'
         this.snackbar = true
-        this.dialogAnswer = false
-        this.answers = {} // Clear answers after successful submission
-        this.selectedExample = null // Clear selected example
-
-        // Refresh list of answered perspectives
+        this.closeAnswerDialog()
         await this.fetchUserPerspectiveAnswers()
       } catch (e) {
         console.error('Error saving answers:', e)
@@ -997,6 +1033,7 @@ export default {
         })
         this.snackbarErrorMessage = e.response?.data?.detail || e.message || 'Error saving answers'
         this.snackbarError = true
+        this.hasError = true
       }
     },
 
@@ -1017,7 +1054,6 @@ export default {
     async showQuestionResponses(question) {
       this.viewingQuestion = question;
       this.loadingResponses = true;
-      this.dialogViewResponses = true;
       
       try {
         const service = usePerspectiveApplicationService()
@@ -1027,10 +1063,15 @@ export default {
         );
         this.questionResponses = response.results || [];
         this.voteCounts = this.calculateVoteCounts(this.questionResponses);
+        
+        // Only open dialog if no errors occurred
+        if (!this.errorMessage && !this.hasError) {
+          this.dialogViewResponses = true;
+        }
       } catch (error) {
         console.error('Error fetching responses:', error);
-        this.snackbarErrorMessage = 'Failed to fetch responses';
-        this.snackbarError = true;
+        this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        this.hasError = true;
       } finally {
         this.loadingResponses = false;
       }
@@ -1159,17 +1200,24 @@ export default {
 
     // Update the openComparisonDialog method to fetch user info
     async openComparisonDialog(params) {
-      this.selectedDocumentId = params.documentId;
-      this.comparisonUsers = {
-        user1: params.user1 || this.$store.getters.getUserId,
-        user2: params.user2
-      };
-      
-      // Try to fetch user info before showing the dialog
-      await this.fetchBasicUserInfo();
-      
-      // Now show the dialog
-      this.dialogCompare = true;
+      try {
+        this.selectedDocumentId = params.documentId;
+        this.comparisonUsers = {
+          user1: params.user1 || this.$store.getters.getUserId,
+          user2: params.user2
+        };
+        
+        // Try to fetch user info before showing the dialog
+        await this.fetchBasicUserInfo();
+        
+        // Show the dialog
+        this.dialogCompare = true;
+      } catch (error) {
+        console.error('Error opening comparison dialog:', error);
+        this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        this.hasError = true;
+        this.dialogCompare = false; // Ensure dialog doesn't open on error
+      }
     },
 
     async hasGroupResponses(group) {
@@ -1271,4 +1319,46 @@ export default {
 
 <style scoped>
 /* os teus estilos continuam aqui */
+.success-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #e6f4ea;
+  color: #2e7d32;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #fdecea;
+  color: #b71c1c;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
 </style>
