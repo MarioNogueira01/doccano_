@@ -14,6 +14,16 @@
           <v-card-title>
             Dataset Entries
             <v-spacer></v-spacer>
+            <!-- Add CSV Report Button -->
+            <v-btn
+              :loading="generatingCSV"
+              color="primary"
+              class="mr-2"
+              @click="generateCSVReport"
+            >
+              <v-icon left>mdi-file-excel</v-icon>
+              Generate CSV Report
+            </v-btn>
             <!-- Add PDF Report Button -->
             <v-btn
               :loading="generatingReport"
@@ -203,6 +213,7 @@ export default {
       },
       loadingStats: false,
       generatingReport: false,
+      generatingCSV: false,
       headers: [
         { text: 'ID', value: 'id', width: '80px' },
         { text: 'Text', value: 'text' },
@@ -401,7 +412,7 @@ export default {
           datasets: [{
             label: 'No Labels',
             backgroundColor: ['#E0E0E0'],
-            data: [1],
+            data: [100], // 100% for no labels
             barThickness: 45
           }]
         }
@@ -419,7 +430,16 @@ export default {
       if (Object.keys(labelDistribution).length > 0) {
         const labels = Object.keys(labelDistribution)
         console.log('Using labels:', labels)
-        const data = labels.map(label => labelDistribution[label])
+        
+        // Calculate total count for percentage calculation
+        const totalCount = Object.values(labelDistribution).reduce((sum, count) => sum + count, 0)
+        
+        // Calculate percentages
+        const data = labels.map(label => {
+          const count = labelDistribution[label]
+          return Math.round((count / totalCount) * 100)
+        })
+        
         const backgroundColors = labels.map(label => {
           const labelType = rawLabelTypes.find(lt => lt.text === label)
           return labelType?.backgroundColor || this.getLabelColor(label)
@@ -428,7 +448,7 @@ export default {
         return {
           labels,
           datasets: [{
-            label: 'Labels',
+            label: 'Labels (%)',
             data,
             backgroundColor: backgroundColors,
             barThickness: 45
@@ -436,14 +456,14 @@ export default {
         }
       }
 
-      // If we have category count but no specific labels, show the count
+      // If we have category count but no specific labels, show the count as percentage
       if (categoryCount > 0) {
         return {
           labels: ['Categories'],
           datasets: [{
-            label: 'Categories',
+            label: 'Categories (%)',
             backgroundColor: ['#4CAF50'],
-            data: [categoryCount],
+            data: [100], // 100% for categories
             barThickness: 45
           }]
         }
@@ -454,7 +474,7 @@ export default {
         labels: ['No Labels'],
         datasets: [{
           backgroundColor: ['#E0E0E0'],
-          data: [1],
+          data: [100], // 100% for no labels
           barThickness: 45
         }]
       }
@@ -568,6 +588,116 @@ export default {
         }
       } finally {
         this.generatingReport = false
+      }
+    },
+
+    generateCSVReport() {
+      this.generatingCSV = true
+      try {
+        const delimiter = ';'
+        const rows = [
+          ['ID', 'Text', 'Status', 'Label Distribution']
+        ]
+
+        // Add all entries to the CSV
+        this.datasetStats.entries.forEach(entry => {
+          const labelDistribution = entry.labelDistribution || {}
+          const labels = Object.entries(labelDistribution)
+            .map(([label, count]) => `${label}: ${count}`)
+            .join(', ')
+          
+          rows.push([
+            entry.id,
+            entry.text,
+            entry.annotated ? 'Annotated' : 'Pending',
+            labels || 'No Labels'
+          ])
+        })
+
+        // Add statistics section
+        rows.push([]) // Empty row for separation
+        rows.push(['Dataset Statistics'])
+        rows.push(['Total Entries', this.datasetStats.total])
+        rows.push(['Annotated Entries', this.datasetStats.annotated])
+        rows.push(['Unannotated Entries', this.datasetStats.unannotated])
+        rows.push(['Annotation Rate', `${((this.datasetStats.annotated / this.datasetStats.total) * 100).toFixed(2)}%`])
+
+        // Add label type statistics if available
+        if (this.labelTypes.categories.length > 0) {
+          rows.push([])
+          rows.push(['Category Label Types'])
+          this.labelTypes.categories.forEach(category => {
+            rows.push([category.text, category.backgroundColor])
+          })
+        }
+
+        if (this.labelTypes.spans.length > 0) {
+          rows.push([])
+          rows.push(['Span Label Types'])
+          this.labelTypes.spans.forEach(span => {
+            rows.push([span.text, span.backgroundColor])
+          })
+        }
+
+        if (this.labelTypes.relations.length > 0) {
+          rows.push([])
+          rows.push(['Relation Label Types'])
+          this.labelTypes.relations.forEach(relation => {
+            rows.push([relation.text, relation.backgroundColor])
+          })
+        }
+
+        // Add global label distribution if available
+        if (Object.keys(this.labelDistribution).length > 0) {
+          rows.push([])
+          rows.push(['Global Label Distribution'])
+          
+          if (Object.keys(this.labelDistribution.categories).length > 0) {
+            rows.push(['Category Distribution'])
+            Object.entries(this.labelDistribution.categories).forEach(([label, count]) => {
+              rows.push([label, count])
+            })
+          }
+
+          if (Object.keys(this.labelDistribution.spans).length > 0) {
+            rows.push(['Span Distribution'])
+            Object.entries(this.labelDistribution.spans).forEach(([label, count]) => {
+              rows.push([label, count])
+            })
+          }
+
+          if (Object.keys(this.labelDistribution.relations).length > 0) {
+            rows.push(['Relation Distribution'])
+            Object.entries(this.labelDistribution.relations).forEach(([label, count]) => {
+              rows.push([label, count])
+            })
+          }
+        }
+
+        const csvContent = '\uFEFF' + // UTF-8 BOM for better compatibility (Excel)
+          rows
+            .map(r => r.map(item => {
+              const field = String(item)
+              const needsQuotes = field.includes(delimiter) || field.includes('"') || field.includes('\n')
+              const escaped = field.replace(/"/g, '""')
+              return needsQuotes ? `"${escaped}"` : escaped
+            }).join(delimiter))
+            .join('\r\n')
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blobUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.setAttribute('download', `dataset-report-${this.projectId}-${new Date().toISOString()}.csv`)
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(blobUrl)
+      } catch (error) {
+        console.error('Error generating CSV report:', error)
+        this.errorMessage = 'Failed to generate CSV report'
+      } finally {
+        this.generatingCSV = false
       }
     }
   }

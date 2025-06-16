@@ -125,8 +125,24 @@
             <v-simple-table>
               <thead>
                 <tr>
-                  <th>Question</th>
-                  <th>Type</th>
+                  <th 
+                    class="sortable" 
+                    @click="sortQuestions(group, 'question')"
+                  >
+                    Question
+                    <v-icon small class="ml-1">
+                      {{ getSortIcon(group, 'question') }}
+                    </v-icon>
+                  </th>
+                  <th 
+                    class="sortable" 
+                    @click="sortQuestions(group, 'data_type')"
+                  >
+                    Type
+                    <v-icon small class="ml-1">
+                      {{ getSortIcon(group, 'data_type') }}
+                    </v-icon>
+                  </th>
                   <th class="text-right">Actions</th>
                 </tr>
               </thead>
@@ -639,6 +655,8 @@ export default {
 
       errorMessage: '',
       hasError: false,
+
+      sortConfig: {},
     }
   },
 
@@ -1312,6 +1330,48 @@ export default {
         this.snackbarErrorMessage = e.response?.data?.detail || 'Error deleting question';
         this.snackbarError = true;
       }
+    },
+
+    sortQuestions(group, column) {
+      if (!this.sortConfig[group.id]) {
+        this.sortConfig[group.id] = {
+          column: 'question',
+          direction: 'asc'
+        }
+      }
+
+      // If clicking the same column, toggle direction
+      if (this.sortConfig[group.id].column === column) {
+        this.sortConfig[group.id].direction = 
+          this.sortConfig[group.id].direction === 'asc' ? 'desc' : 'asc'
+      } else {
+        // If clicking a new column, set it as the sort column
+        this.sortConfig[group.id] = {
+          column,
+          direction: 'asc'
+        }
+      }
+
+      // Sort the questions
+      group.questions.sort((a, b) => {
+        const aValue = a[column]
+        const bValue = b[column]
+        
+        if (this.sortConfig[group.id].direction === 'asc') {
+          return aValue.localeCompare(bValue)
+        } else {
+          return bValue.localeCompare(aValue)
+        }
+      })
+    },
+
+    getSortIcon(group, column) {
+      if (!this.sortConfig[group.id] || this.sortConfig[group.id].column !== column) {
+        return 'mdi-sort'
+      }
+      return this.sortConfig[group.id].direction === 'asc' 
+        ? 'mdi-sort-ascending' 
+        : 'mdi-sort-descending'
     },
   }
 }
