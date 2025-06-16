@@ -178,23 +178,23 @@ export default {
 
         {
           icon: mdiViewDashboard,
-          text: 'Perspetivas',
+          text: 'Perspectives',
           link: 'perspectives',
           isVisible: this.isProjectAdmin
         },
         {
           icon: mdiDatabase,
-          text: 'Perspetivas',
+          text: 'Perspectives',
           link: 'perspectives',
           isVisible: !this.isProjectAdmin
         },
         {
           icon: mdiAlertCircleOutline,
-          text: 'Discrepâncias',
+          text: 'Discrepancies',
           link: 'discrepancies',
           isVisible: this.isProjectAdmin
         },
-        // Remova os itens individuais e insira o único item dropdown "Relatórios"
+        // Remove individual items and insert the single dropdown "Reports"
         {
           icon: mdiChartBox,
           text: 'Reports',
@@ -203,11 +203,10 @@ export default {
         },
         {
           icon: mdiDatabase,
-          text: 'Discrepâncias',
+          text: 'Discrepancies',
           link: 'discrepancies',
           isVisible: false
         },
-
 
         {
           icon: mdiCog,
@@ -217,7 +216,7 @@ export default {
         },
         {
           icon: mdiChartBar,
-          text: 'Votações',
+          text: 'Votes',
           link: 'votacoes',
           isVisible: false
         },
@@ -229,7 +228,7 @@ export default {
         },
         {
           icon: mdiHistory,
-          text: 'Histórico das Regras',
+          text: 'Rules History',
           link: 'rules/history'
         },
         {
