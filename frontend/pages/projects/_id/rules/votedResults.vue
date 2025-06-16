@@ -234,7 +234,11 @@ export default {
         }
       } catch (error) {
         console.error('Erro ao buscar membros:', error);
-        this.snackbarErrorMessage = 'Erro ao buscar informações dos membros.';
+        if (!error.response || (error.response.status && error.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = 'Erro ao buscar informações dos membros.';
+        }
         this.snackbarError = true;
         // Em caso de erro, assume pelo menos 1 membro (o próprio usuário)
         this.totalMembers = 1;
@@ -292,7 +296,11 @@ export default {
         }
       } catch (error) {
         console.error('Erro ao buscar sessões:', error);
-        this.snackbarErrorMessage = 'Erro ao buscar sessões. Por favor, tente novamente.';
+        if (!error.response || (error.response.status && error.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = 'Erro ao buscar sessões. Por favor, tente novamente.';
+        }
         this.snackbarError = true;
       } finally {
         this.loading = false;

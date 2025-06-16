@@ -750,7 +750,11 @@ export default {
         this.expandedPanel = this.perspectiveGroups.findIndex(gr => gr.id === groupId);
       } catch (err) {
         console.error(err);
-        this.snackbarErrorMessage = err.response?.data?.detail || 'Error creating group';
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = err.response?.data?.detail || 'Error creating group';
+        }
         this.snackbarError = true;
       }
     },
@@ -841,7 +845,11 @@ export default {
         this.snackbar = true;
       } catch (e) {
         console.error(e);
-        this.snackbarErrorMessage = e.response?.data?.detail || 'Error adding question';
+        if (!e.response || (e.response.status && e.response.status >= 500)) {
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage = e.response?.data?.detail || 'Error adding question';
+        }
         this.snackbarError = true;
       }
     },
@@ -1090,6 +1098,9 @@ export default {
       } catch (e) {
         if (!e.response || (e.response.status && e.response.status >= 500)) {
           this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+        } else if (e.response.status === 400 && e.response.data?.question) {
+          // Erro de validação: nome da questão duplicado
+          this.snackbarErrorMessage = 'esse nome da questao ja esta a ser usado';
         } else {
           this.snackbarErrorMessage = e.response?.data?.detail || 'Error updating question';
         }

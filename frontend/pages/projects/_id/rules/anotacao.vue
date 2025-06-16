@@ -454,6 +454,12 @@ import 'jspdf-autotable'
     },
   
     methods: {
+      handleDbError (error, fallbackMsg) {
+        const msg = (!error.response || (error.response.status && error.response.status >= 500))
+          ? 'Database unavailable at the moment, please try again later.'
+          : (fallbackMsg || error.response?.data?.detail || error.message || 'An error occurred.');
+        this.$store.dispatch('notification/open', { message: msg, type: 'error' })
+      },
       formatDate(date) {
         if (!date) return '';
         return new Date(date).toLocaleDateString();
@@ -481,11 +487,8 @@ import 'jspdf-autotable'
           console.log("DEBUG: selectedDatasets após loadAvailableDatasets:", this.selectedDatasets)
           return true // Indicate success
         } catch (error) {
-          this.$store.dispatch('notification/open', {
-            message: 'Nenhum dataset encontrado.',
-            type: 'error'
-          })
           console.error('Erro ao carregar datasets disponíveis:', error)
+          this.handleDbError(error, 'Nenhum dataset encontrado.')
           return false // Indicate failure
         } finally {
           this.loading = false
@@ -499,10 +502,7 @@ import 'jspdf-autotable'
           this.perspectiveGroups = response.results || []
         } catch (err) {
           console.error('Error fetching perspective groups:', err)
-          this.$store.dispatch('notification/open', {
-            message: 'Erro ao carregar grupos de perspectiva.',
-            type: 'error'
-          })
+          this.handleDbError(err, 'Erro ao carregar grupos de perspectiva.')
         }
       },
   
@@ -599,11 +599,8 @@ import 'jspdf-autotable'
             type: 'success'
           })
         } catch (error) {
-          this.$store.dispatch('notification/open', {
-            message: 'Erro ao gerar relatório: ' + (error.response?.data?.error || error.message),
-            type: 'error'
-          })
-          console.error('Erro ao gerar relatório:', error.response?.data || error)
+          console.error('Erro ao gerar relatório:', error)
+          this.handleDbError(error, 'Erro ao gerar relatório.')
         } finally {
           this.loading = false
         }
@@ -694,10 +691,7 @@ import 'jspdf-autotable'
     doc.output('relatorio-anotacoes.pdf');
   } catch (error) {
     console.error('Erro ao exportar PDF:', error);
-    this.$store.dispatch('notification/open', {
-      message: 'Erro ao exportar PDF: ' + (error.message || error),
-      type: 'error'
-    });
+    this.handleDbError(error, 'Erro ao exportar PDF.')
   }
 }
 

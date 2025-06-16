@@ -53,6 +53,16 @@
                 >
                   <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
                 </v-list-item>
+                <v-list-item
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotation-history`))"
+                >
+                  <v-list-item-title>History of Annotations</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotation-distribution`))"
+                >
+                  <v-list-item-title>Annotation Distribution</v-list-item-title>
+                </v-list-item>
               </v-expansion-panel-content>
             </v-expansion-panel>
           </v-expansion-panels>
@@ -163,7 +173,7 @@ export default {
           icon: mdiHistory,
           text: 'History of Annotations',
           link: 'annotation-history',
-          isVisible: true
+          isVisible: false
         },
 
         {
@@ -209,7 +219,7 @@ export default {
           icon: mdiChartBar,
           text: 'Votações',
           link: 'votacoes',
-          isVisible: true
+          isVisible: false
         },
         {
           icon: mdiChartBar,
@@ -226,7 +236,7 @@ export default {
           icon: mdiChartPie,
           text: 'Annotation Distribution',
           link: 'annotation-distribution',
-          isVisible: true
+          isVisible: false
         }
       ]
       return items.filter(item => item.isVisible)

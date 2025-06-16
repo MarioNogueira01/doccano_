@@ -1,7 +1,7 @@
 <template>
   <v-card>
     <v-card-title>
-      <span class="text-h5">Editar Usuário</span>
+      <span class="text-h5">Edit User</span>
     </v-card-title>
 
     <v-card-text>
@@ -115,7 +115,11 @@ export default {
         // Se não houver resposta do servidor ou erro 5xx, assume indisponibilidade da base de dados
         if (!error.response || (error.response.status && error.response.status >= 500)) {
           this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
+        } else if (error.response.status === 400 && error.response.data?.username) {
+          // Erro de validação: nome de utilizador duplicado
+          this.dbErrorMessage = 'Este nome de utilizador ja esta a ser usado.'
         } else {
+          // Demais erros
           this.dbErrorMessage = error.response.data?.detail || 'Ocorreu um erro ao atualizar o usuário.'
         }
         this.dbErrorVisible = true

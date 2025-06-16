@@ -218,7 +218,9 @@ export default Vue.extend({
           try {
             await this.$services.user.delete(user.id)
           } catch (error) {
-            if (error && typeof error === 'object' && 'response' in error) {
+            if (!error.response || (error.response.status && error.response.status >= 500)) {
+              this.errorMessage = 'Database unavailable at the moment, please try again later.'
+            } else if (error && typeof error === 'object' && 'response' in error) {
               this.errorMessage = (error as any).response.data?.detail || 'Erro ao eliminar utilizador.'
             } else {
               this.errorMessage = this.$t('UserOverview.overview.deleteUserError') as string
