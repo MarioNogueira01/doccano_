@@ -197,7 +197,7 @@ export default {
         // Remova os itens individuais e insira o único item dropdown "Relatórios"
         {
           icon: mdiChartBox,
-          text: 'Relatórios',
+          text: 'Reports',
           link: 'rulesReports',
           isVisible: true
         },
@@ -223,7 +223,7 @@ export default {
         },
         {
           icon: mdiChartBar,
-          text: 'Regras',
+          text: 'Rules',
           link: 'rules',
           isVisible: true
         },

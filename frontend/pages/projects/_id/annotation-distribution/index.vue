@@ -1,5 +1,13 @@
 <template>
   <v-container fluid>
+    <!-- Error message as pop-up central superior -->
+    <transition name="fade">
+      <div v-if="errorMessage" class="error-message">
+        <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
+        {{ errorMessage }}
+      </div>
+    </transition>
+
     <v-row>
       <v-col cols="12">
         <v-card>
@@ -8,23 +16,23 @@
             <v-spacer></v-spacer>
             <!-- Add PDF Report Button -->
             <v-btn
+              :loading="generatingReport"
               color="primary"
               class="mr-2"
               @click="generatePDFReport"
-              :loading="generatingReport"
             >
               <v-icon left>mdi-file-pdf-box</v-icon>
               Generate PDF Report
             </v-btn>
             <!-- Add Perspective Filters -->
             <v-dialog v-model="perspectiveFilterDialog" max-width="600px">
-              <template v-slot:activator="{ on, attrs }">
+              <template #activator="{ on, attrs }">
                 <v-btn
+                  class="mr-2"
                   color="primary"
                   dark
                   v-bind="attrs"
                   v-on="on"
-                  class="mr-2"
                 >
                   Filter by Perspective
                 </v-btn>
@@ -218,7 +226,8 @@ export default {
       // Add new data properties for perspective filtering
       perspectiveFilterDialog: false,
       perspectiveGroups: [],
-      selectedPerspectiveAnswers: {}
+      selectedPerspectiveAnswers: {},
+      errorMessage: null
     }
   },
 
@@ -295,7 +304,11 @@ export default {
         console.log('Dataset stats sample:', stats.entries[0])
       } catch (error) {
         console.error('Error fetching dataset stats:', error)
-        this.$toasted.error('Failed to load dataset statistics')
+        if (!error.response || (error.response.status && error.response.status >= 500)) {
+          this.errorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          this.errorMessage = 'Failed to load dataset statistics'
+        }
       } finally {
         this.loadingStats = false
       }
@@ -526,97 +539,33 @@ export default {
         })
 
         // Check if the response is an error message
-        if (response.headers['content-type']?.includes('application/json') || 
-            response.headers['content-type']?.includes('text/plain')) {
+        if (response.headers['content-type'] === 'application/json') {
           const reader = new FileReader()
-          const errorText = await new Promise((resolve) => {
-            reader.onload = () => resolve(reader.result)
-            reader.readAsText(response.data)
-          })
-          console.log('Error response text:', errorText)
-          try {
-            const errorData = JSON.parse(errorText)
-            throw new TypeError(errorData.error || errorData.detail || 'Failed to generate PDF')
-          } catch (e) {
-            if (e instanceof SyntaxError) {
-              // If JSON parsing fails, use the raw error text
-              throw new TypeError(errorText || 'Failed to generate PDF')
-            }
-            throw e
+          reader.onload = () => {
+            const errorData = JSON.parse(reader.result)
+            this.errorMessage = errorData.detail || 'Failed to generate PDF report'
           }
-        }
-
-        // Verify we have a PDF response
-        if (!response.headers['content-type']?.includes('application/pdf')) {
-          throw new TypeError(`Server returned unexpected content type: ${response.headers['content-type']}`)
+          reader.readAsText(response.data)
+          return
         }
 
         // Create a blob from the PDF data
         const blob = new Blob([response.data], { type: 'application/pdf' })
-        console.log('Created blob:', {
-          type: blob.type,
-          size: blob.size
-        })
-        
-        // Create a URL for the blob
         const blobUrl = window.URL.createObjectURL(blob)
-        console.log('Created blob URL:', blobUrl)
-        
-        // Create a temporary link element
         const link = document.createElement('a')
         link.href = blobUrl
-        
-        // Set the filename
-        const date = new Date().toISOString().split('T')[0]
-        link.download = `annotation-distribution-report-${date}.pdf`
-        
-        // Append to body, click and remove
+        link.setAttribute('download', `dataset-report-${this.projectId}.pdf`)
         document.body.appendChild(link)
         link.click()
-        document.body.removeChild(link)
-        
-        // Clean up the URL
+        link.remove()
         window.URL.revokeObjectURL(blobUrl)
-        
-        this.$store.dispatch('notification/open', {
-          message: 'PDF report generated successfully',
-          type: 'success'
-        })
       } catch (error) {
         console.error('Error generating PDF report:', error)
-        console.error('Error details:', {
-          message: error.message,
-          response: error.response,
-          status: error.response?.status,
-          data: error.response?.data
-        })
-
-        // Try to get a more detailed error message
-        let errorMessage = error.message
-        if (error.response?.data instanceof Blob) {
-          try {
-            const reader = new FileReader()
-            const errorText = await new Promise((resolve) => {
-              reader.onload = () => resolve(reader.result)
-              reader.readAsText(error.response.data)
-            })
-            try {
-              const errorData = JSON.parse(errorText)
-              errorMessage = errorData.error || errorData.detail || errorMessage
-            } catch (e) {
-              if (!(e instanceof SyntaxError)) {
-                errorMessage = errorText || errorMessage
-              }
-            }
-          } catch (e) {
-            console.error('Error reading error response:', e)
-          }
+        if (!error.response || (error.response.status && error.response.status >= 500)) {
+          this.errorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          this.errorMessage = 'Failed to generate PDF report'
         }
-
-        this.$store.dispatch('notification/open', {
-          message: 'Failed to generate PDF report: ' + errorMessage,
-          type: 'error'
-        })
       } finally {
         this.generatingReport = false
       }
@@ -643,5 +592,33 @@ export default {
 :deep(.chart-container canvas) {
   min-height: 118px !important;
   min-width: 60px !important;
+}
+
+/* Error message styles */
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #fdecea;
+  color: #b71c1c;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+/* Fade transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
