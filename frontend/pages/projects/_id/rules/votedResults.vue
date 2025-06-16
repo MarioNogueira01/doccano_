@@ -72,7 +72,7 @@
           color="info"
           @click="openHistory(item.sessionId, item._index)"
         >
-          Histórico
+          History
         </v-btn>
       </template>
     </v-data-table>
@@ -132,7 +132,7 @@ export default {
         { text: 'Regra', value: 'question' },
         { text: 'Votos', value: 'votes' },
         { text: 'Participação', value: 'participation' },
-        { text: 'Histórico', value: 'history', sortable: false },
+        { text: 'History', value: 'history', sortable: false },
       ],
       dialogHistory: false,
       historySessionId: null,

@@ -41,17 +41,17 @@
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/anotacao`))"
                 >
-                  <v-list-item-title>Relatório de Anotação</v-list-item-title>
+                  <v-list-item-title>Annotation Report</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotators`))"
                 >
-                  <v-list-item-title>Relatório de Anotadores</v-list-item-title>
+                  <v-list-item-title>Annotators Report</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/history-stats`))"
                 >
-                  <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
+                  <v-list-item-title>History Statistics</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotation-history`))"
@@ -178,32 +178,32 @@ export default {
 
         {
           icon: mdiViewDashboard,
-          text: 'Perspetivas',
+          text: 'Perspectives',
           link: 'perspectives',
           isVisible: this.isProjectAdmin
         },
         {
           icon: mdiDatabase,
-          text: 'Perspetivas',
+          text: 'Perspectives',
           link: 'perspectives',
           isVisible: !this.isProjectAdmin
         },
         {
           icon: mdiAlertCircleOutline,
-          text: 'Discrepâncias',
+          text: 'Discrepancies',
           link: 'discrepancies',
           isVisible: this.isProjectAdmin
         },
         // Remova os itens individuais e insira o único item dropdown "Relatórios"
         {
           icon: mdiChartBox,
-          text: 'Relatórios',
+          text: 'Reports',
           link: 'rulesReports',
           isVisible: true
         },
         {
           icon: mdiDatabase,
-          text: 'Discrepâncias',
+          text: 'Discrepancies',
           link: 'discrepancies',
           isVisible: false
         },
@@ -217,19 +217,19 @@ export default {
         },
         {
           icon: mdiChartBar,
-          text: 'Votações',
+          text: 'Votes',
           link: 'votacoes',
           isVisible: false
         },
         {
           icon: mdiChartBar,
-          text: 'Regras',
+          text: 'Rules',
           link: 'rules',
           isVisible: true
         },
         {
           icon: mdiHistory,
-          text: 'Histórico das Regras',
+          text: 'Rules History',
           link: 'rules/history'
         },
         {

@@ -251,7 +251,7 @@
       <!-- Novo botão Discussão -->
       <template #[`item.actions`]="{ item }">
         <v-btn small color="primary" @click="goToDiscussion(item)">
-          Discussão
+          Discussion
         </v-btn>
       </template>
     </v-data-table>
@@ -298,7 +298,7 @@ export default {
         { text: 'Dataset Labels', value: 'labels', sortable: false },
         { text: 'Overall Status', value: 'is_discrepancy', sortable: true },
         { text: 'Max Percentage', value: 'max_percentage', sortable: true },
-        { text: 'Discussão', value: 'actions', sortable: false }
+        { text: 'Discussion', value: 'actions', sortable: false }
       ]
     };
   },
