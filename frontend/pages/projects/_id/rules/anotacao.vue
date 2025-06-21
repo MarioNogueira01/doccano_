@@ -171,21 +171,6 @@ export default {
   },
   computed: {
     projectId () { return this.$route.params.id },
-
-    allLabelsSelected () {
-      return this.selectedLabels.length === this.labelOptions.length
-    },
-
-    someLabelsSelected () {
-      return this.selectedLabels.length > 0 && !this.allLabelsSelected
-    },
-
-    selectAllIcon () {
-      if (this.allLabelsSelected) return 'mdi-close-box'
-      if (this.someLabelsSelected) return 'mdi-minus-box'
-      return 'mdi-checkbox-blank-outline'
-    },
-
     tableData() {
       const aggregation = {}
 
@@ -202,8 +187,7 @@ export default {
           }
 
           // Aplica o filtro de labels aqui
-          const showAllLabels = this.selectedLabels.length === 0 || this.selectedLabels.includes('Todas as Labels')
-          if (!showAllLabels && !this.selectedLabels.includes(label)) {
+          if (this.selectedLabels.length > 0 && !this.selectedLabels.includes(label)) {
             return // Pula esta label se não estiver selecionada
           }
 
@@ -238,9 +222,8 @@ export default {
     } catch (e) { /* ignore */ }
 
     try {
-      const labels = await this.$services.categoryType.list(this.projectId)
-      const labelNames = labels.map(label => label.text)
-      this.labelOptions = ['Todas as Labels', ...labelNames]
+      const labels = await this.$repositories.label.list(this.projectId)
+      this.labelOptions = labels.map(label => label.text)
     } catch (e) { console.error('Failed to load labels', e) }
 
     try {
@@ -273,15 +256,6 @@ export default {
         params.perspective_filters = JSON.stringify(this.selectedPerspectiveAnswers)
       }
       return params
-    },
-    toggleSelectAllLabels () {
-      this.$nextTick(() => {
-        if (this.allLabelsSelected) {
-          this.selectedLabels = []
-        } else {
-          this.selectedLabels = this.labelOptions.slice()
-        }
-      })
     },
     async fetchStats () {
       const baseParams = this.buildParams()
