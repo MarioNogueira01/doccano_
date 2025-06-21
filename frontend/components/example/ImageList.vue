@@ -73,7 +73,12 @@
       </v-combobox>
     </template>
     <template #[`item.action`]="{ item }">
-      <v-btn small color="primary text-capitalize" @click="toLabeling(item)">
+      <v-btn
+        small
+        color="primary text-capitalize"
+        :disabled="disabledButtons.includes(item.id)"
+        @click="toLabeling(item)"
+      >
         {{ $t('dataset.annotate') }}
       </v-btn>
     </template>
@@ -118,6 +123,10 @@ export default Vue.extend({
     isAdmin: {
       type: Boolean,
       default: false
+    },
+    disabledButtons: {
+      type: Array,
+      default: () => []
     }
   },
 
@@ -209,7 +218,7 @@ export default Vue.extend({
       const index = this.items.indexOf(item)
       const offset = (this.options.page - 1) * this.options.itemsPerPage
       const page = (offset + index + 1).toString()
-      this.$emit('click:labeling', { page, q: this.search })
+      this.$emit('click:labeling', { item, query: { page, q: this.search } })
     },
 
     toSelected(item: ExampleDTO): any {

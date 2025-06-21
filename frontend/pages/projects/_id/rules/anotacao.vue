@@ -103,7 +103,7 @@
       <v-btn
         color="primary"
         class="me-2"
-        @click="generateReport"
+        @click.prevent="generateReport"
       >
         Gerar Relatório
       </v-btn>
@@ -250,8 +250,18 @@ export default {
   },
   methods: {
     // onDatasetChange removido
-    generateReport() {
-      this.fetchStats();
+    async generateReport() {
+      try {
+        await this.fetchStats()
+      } catch (e) {
+        if (!e.response || (e.response && e.response.status >= 500)) {
+          this.$toast.error('Database unavailable at the moment, please try again later.')
+        } else {
+          const message = e.response?.data?.detail || 'An unexpected error occurred while generating the report.'
+          this.$toast.error(message)
+          console.error('Failed to generate report', e)
+        }
+      }
     },
     applyPerspectiveFilters () {
       this.perspectiveFilterDialog = false

@@ -86,6 +86,7 @@
       :is-loading="isLoading"
       :members="members"
       :total="item.count"
+      :disabled-buttons="disabledAnnotations"
       @update:query="updateQuery"
       @click:labeling="movePage"
       @assign="assign"
@@ -99,6 +100,7 @@
       :is-loading="isLoading"
       :members="members"
       :total="item.count"
+      :disabled-buttons="disabledAnnotations"
       @update:query="updateQuery"
       @click:labeling="movePage"
       @assign="assign"
@@ -112,6 +114,7 @@
       :is-loading="isLoading"
       :members="members"
       :total="item.count"
+      :disabled-buttons="disabledAnnotations"
       @update:query="updateQuery"
       @click:labeling="movePage"
       @edit="editItem"
@@ -188,6 +191,7 @@ import { ExampleDTO, ExampleListDTO } from '~/services/application/example/examp
 import { MemberItem } from '~/domain/models/member/member'
 import ComparisonView from '~/components/annotations/ComparisonView.vue'
 import FormCompareAnnotations from '~/components/example/FormCompareAnnotations.vue'
+import { usePerspectiveApplicationService } from '@/services/application/perspective/perspectiveApplicationService'
 
 export default Vue.extend({
   components: {
@@ -241,12 +245,15 @@ export default Vue.extend({
 
       errorMessage: '',
       hasError: false,
-
+      hasUnansweredQuestions: false,
+      unansweredQuestionsMessage: '',
+      disabledAnnotations: []
     }
   },
 
   async fetch(this: NuxtAppOptions) {
     this.isLoading = true
+    await this.checkPerspectiveAnswers()
     this.item = await this.$services.example.list(this.projectId, this.$route.query)
     this.user = await this.$repositories.member.fetchMyRole(this.projectId)
     
@@ -325,6 +332,41 @@ export default Vue.extend({
   },
 
   methods: {
+    async checkPerspectiveAnswers() {
+      try {
+        const perspectiveGroups = await this.$services.perspective.listPerspectiveGroups(
+          this.projectId
+        )
+        const allQuestions = (perspectiveGroups.results || []).flatMap((group) => group.questions)
+
+        if (allQuestions.length === 0) {
+          this.hasUnansweredQuestions = true
+          this.unansweredQuestionsMessage =
+            'No perspective questions have been created. Please create one in the Perspectives tab.'
+          return
+        }
+
+        const service = usePerspectiveApplicationService()
+        const answered = await service.listPerspectiveAnswers(this.projectId)
+        const myId = this.$store.getters['auth/getUserId']
+        const myAnswers = (answered.results || answered).filter((a) => a.created_by === myId)
+        const answeredQuestionIds = myAnswers.map((a) => a.perspective)
+        const unansweredQuestions = allQuestions.filter((q) => !answeredQuestionIds.includes(q.id))
+
+        if (unansweredQuestions.length > 0) {
+          this.hasUnansweredQuestions = true
+          this.unansweredQuestionsMessage =
+            'Please answer all perspective questions before annotating. Go to the Perspectives tab.'
+        } else {
+          this.hasUnansweredQuestions = false
+          this.unansweredQuestionsMessage = ''
+        }
+      } catch (e) {
+        // Fail open to not block annotation due to a failure in this check
+        console.error('Error checking perspective answers', e)
+        this.hasUnansweredQuestions = false
+      }
+    },
     async remove() {
       await this.$services.example.bulkDelete(this.projectId, this.selected)
       await this.$fetch()
@@ -343,7 +385,17 @@ export default Vue.extend({
       this.$router.push(query)
     },
 
-    movePage(query: object) {
+    movePage({ item, query }: { item: ExampleDTO; query: object }) {
+      if (this.hasUnansweredQuestions) {
+        this.errorMessage = this.unansweredQuestionsMessage
+        if (item && item.id && !this.disabledAnnotations.includes(item.id)) {
+          this.disabledAnnotations.push(item.id)
+        }
+        setTimeout(() => {
+          this.errorMessage = ''
+        }, 5000)
+        return
+      }
       const link = getLinkToAnnotationPage(this.projectId, this.project.projectType)
       this.updateQuery({
         path: this.localePath(link),
