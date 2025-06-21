@@ -43,16 +43,38 @@
         style="max-width: 200px"
       />
 
-      <!-- Button / dialog for filtering by Perspective answers -->
-      <v-dialog v-model="perspectiveFilterDialog" max-width="600px">
-        <template #activator="{ on, attrs }">
-          <v-btn color="primary" dark class="me-2" v-bind="attrs" v-on="on">
+      <v-spacer />
+
+      <!-- Botão para Gerar Relatório -->
+      <v-btn
+        color="primary"
+        class="me-2"
+        @click.prevent="generateReport"
+      >
+        Gerar Relatório
+      </v-btn>
+
+      <!-- Export buttons -->
+      <v-btn color="primary" outlined class="me-2" @click="exportCSV">
+        Exportar CSV
+      </v-btn>
+      <v-btn color="primary" outlined @click="exportPDF">
+        Exportar PDF
+      </v-btn>
+    </v-card-title>
+
+    <v-card-text class="py-0">
+      <v-expansion-panels flat>
+        <v-expansion-panel>
+          <v-expansion-panel-header>
             Filtrar por Perspectiva
-          </v-btn>
-        </template>
-        <v-card>
-          <v-card-title>Filtro de Perspectivas</v-card-title>
-          <v-card-text>
+            <template #actions>
+              <v-icon color="primary">
+                mdi-filter-variant
+              </v-icon>
+            </template>
+          </v-expansion-panel-header>
+          <v-expansion-panel-content>
             <v-container>
               <v-row v-for="group in perspectiveGroups" :key="group.id">
                 <v-col cols="12">
@@ -88,34 +110,14 @@
                 </v-col>
               </v-row>
             </v-container>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn color="primary" text @click="applyPerspectiveFilters">Aplicar</v-btn>
-            <v-btn text @click="clearPerspectiveFilters">Limpar</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
-
-      <v-spacer />
-
-      <!-- Botão para Gerar Relatório -->
-      <v-btn
-        color="primary"
-        class="me-2"
-        @click.prevent="generateReport"
-      >
-        Gerar Relatório
-      </v-btn>
-
-      <!-- Export buttons -->
-      <v-btn color="primary" outlined class="me-2" @click="exportCSV">
-        Exportar CSV
-      </v-btn>
-      <v-btn color="primary" outlined @click="exportPDF">
-        Exportar PDF
-      </v-btn>
-    </v-card-title>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn text @click="clearPerspectiveFilters">Limpar Filtros</v-btn>
+            </v-card-actions>
+          </v-expansion-panel-content>
+        </v-expansion-panel>
+      </v-expansion-panels>
+    </v-card-text>
 
     <v-divider />
 
@@ -157,7 +159,6 @@ export default {
         { text: 'Sem Acordo', value: 'disagreement' }
       ],
       selectedAgreement: null,
-      perspectiveFilterDialog: false,
       perspectiveGroups: [],
       selectedPerspectiveAnswers: {},
       search: '',
@@ -263,14 +264,8 @@ export default {
         }
       }
     },
-    applyPerspectiveFilters () {
-      this.perspectiveFilterDialog = false
-      // Já não chama a busca de dados
-    },
     clearPerspectiveFilters () {
       this.selectedPerspectiveAnswers = {}
-      this.perspectiveFilterDialog = false
-      // Já não chama a busca de dados
     },
     buildParams () {
       const params = {}
