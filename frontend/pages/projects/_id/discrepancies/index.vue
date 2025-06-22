@@ -316,6 +316,7 @@ export default {
   data() {
     return {
       discrepancies: [],
+      dbDiscrepancies: [], // nova propriedade para armazenar os dados da BD
       perspectiveGroups: [],
       selectedAnswers: {},
       showFilterDialog: false,
@@ -326,7 +327,7 @@ export default {
       loading: true,
       sortOrder: 'desc',
       search: '',
-      thresholdPercentage: 50, // novo campo para o threshold
+      thresholdPercentage: 50,
       headers: [
         { text: 'Text', value: 'text', sortable: true },
         { text: 'Dataset Labels', value: 'labels', sortable: false },
@@ -352,78 +353,78 @@ export default {
       });
     },
     filteredDiscrepancies() {
-  let filtered = [...this.discrepancies];
+      let filtered = [...this.discrepancies];
 
-  const hasPerspectiveFilters = Object.keys(this.selectedAnswers).length > 0;
+      const hasPerspectiveFilters = Object.keys(this.selectedAnswers).length > 0;
 
-  if (hasPerspectiveFilters) {
-    filtered = filtered.filter(discrepancy => {
-      const perspectiveAnswers = discrepancy.perspective_answers || {};
-      const annotators = discrepancy.annotators || [];
+      if (hasPerspectiveFilters) {
+        filtered = filtered.filter(discrepancy => {
+          const perspectiveAnswers = discrepancy.perspective_answers || {};
+          const annotators = discrepancy.annotators || [];
 
-      for (const [selectedQuestionId, selectedValue] of Object.entries(this.selectedAnswers)) {
-        if (
-          selectedValue === null ||
-          selectedValue === undefined ||
-          (Array.isArray(selectedValue) && selectedValue.length === 0)
-        ) continue;
+          for (const [selectedQuestionId, selectedValue] of Object.entries(this.selectedAnswers)) {
+            if (
+              selectedValue === null ||
+              selectedValue === undefined ||
+              (Array.isArray(selectedValue) && selectedValue.length === 0)
+            ) continue;
 
-        let matchFound = false;
+            let matchFound = false;
 
-        for (const group of Object.values(perspectiveAnswers)) {
-          for (const [questionId, answersByAnnotator] of Object.entries(group)) {
-            if (questionId !== selectedQuestionId) continue;
+            for (const group of Object.values(perspectiveAnswers)) {
+              for (const [questionId, answersByAnnotator] of Object.entries(group)) {
+                if (questionId !== selectedQuestionId) continue;
 
-            for (const annotatorId of annotators) {
-              const rawAnswer = answersByAnnotator[annotatorId];
+                for (const annotatorId of annotators) {
+                  const rawAnswer = answersByAnnotator[annotatorId];
 
-              if (rawAnswer !== undefined) {
-                if (Array.isArray(selectedValue)) {
-                  if (selectedValue.includes(rawAnswer)) {
-                    matchFound = true;
-                    break;
-                  }
-                } else {
-                  // booleano (corrigido!)
-                  const answerStr = rawAnswer.toLowerCase?.();
-                  const answerBool =
-                    answerStr === 'true' || answerStr === 'yes'
-                      ? true
-                      : answerStr === 'false' || answerStr === 'no'
-                      ? false
-                      : null;
+                  if (rawAnswer !== undefined) {
+                    if (Array.isArray(selectedValue)) {
+                      if (selectedValue.includes(rawAnswer)) {
+                        matchFound = true;
+                        break;
+                      }
+                    } else {
+                      // booleano (corrigido!)
+                      const answerStr = rawAnswer.toLowerCase?.();
+                      const answerBool =
+                        answerStr === 'true' || answerStr === 'yes'
+                          ? true
+                          : answerStr === 'false' || answerStr === 'no'
+                          ? false
+                          : null;
 
-                  if (answerBool === null) continue;
+                      if (answerBool === null) continue;
 
-                  if (selectedValue === answerBool) {
-                    matchFound = true;
-                    break;
+                      if (selectedValue === answerBool) {
+                        matchFound = true;
+                        break;
+                      }
+                    }
                   }
                 }
+                if (matchFound) break;
               }
+              if (matchFound) break;
             }
-            if (matchFound) break;
-          }
-          if (matchFound) break;
-        }
 
-        if (!matchFound) return false;
+            if (!matchFound) return false;
+          }
+
+          return true;
+        });
       }
 
-      return true;
-    });
-  }
+      if (this.sortOrder) {
+        filtered.sort((a, b) =>
+          this.sortOrder === 'asc'
+            ? a.max_percentage - b.max_percentage
+            : b.max_percentage - a.max_percentage
+        );
+      }
 
-  if (this.sortOrder) {
-    filtered.sort((a, b) =>
-      this.sortOrder === 'asc'
-        ? a.max_percentage - b.max_percentage
-        : b.max_percentage - a.max_percentage
-    );
-  }
-
-  return filtered;
-}
+      return filtered;
+    }
 ,
     hasActiveFilters() {
       return Object.values(this.selectedAnswers).some(values => {
@@ -472,23 +473,20 @@ export default {
     },
     async fetchDiscrepancies() {
       try {
-        // Obtém as discrepâncias via endpoints
         const response = await this.$services.discrepancy.listDiscrepancie(this.projectId);
-        // Obter as discrepâncias já existentes na base de dados
-        const dbDiscrepancies = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
-        console.log('Discrepancies from DB:', dbDiscrepancies);
+        const dbResponse = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
+        console.log('Discrepancies from DB:', dbResponse);
         console.log('Discrepancies fetched:', response);
         this.discrepancies = response.discrepancies || [];
-        // Passa as discrepâncias já existentes para o método de post
-        await this.postDiscrepancie(dbDiscrepancies);
+        // Armazena os dados da BD para uso posterior
+        this.dbDiscrepancies = dbResponse || [];
+        await this.postDiscrepancie(this.dbDiscrepancies);
       } catch (err) {
         console.error('Error fetching discrepancies:', err);
         if (!err.response || (err.response.status && err.response.status >= 500)) {
-          this.snackbarErrorMessage =
-            'Database unavailable at the moment, please try again later.';
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
         } else {
-          this.snackbarErrorMessage =
-            'Failed to fetch discrepancies. Please try again later.';
+          this.snackbarErrorMessage = 'Failed to fetch discrepancies. Please try again later.';
         }
         this.snackbarError = true;
       } finally {
@@ -499,11 +497,9 @@ export default {
     async postDiscrepancie(dbDiscrepancies) {
       try {
         console.log('Posting discrepancies individually:', this.discrepancies);
-        // Itera cada item (por exemplo, cada exemplo) recebido
         for (const item of this.discrepancies) {
           const labels = Object.keys(item.percentages);
           for (const label of labels) {
-            // Verifica se já existe uma discrepância na BD com a mesma question (label)
             const exists = dbDiscrepancies.some(
               (d) => d.question === label
             );
@@ -511,12 +507,12 @@ export default {
               console.log(`Discrepancy for label ${label} already exists, skipping.`);
               continue;
             }
-            const percen= item.percentages[label];
-            const statusValue = percen <= this.thresholdPercentage
+            const percen = item.percentages[label];
+            const statusValue = percen > this.thresholdPercentage
               ? 'Disagreement'
               : 'Agreement';
             const payload = {
-              question: label, // utiliza o label como a pergunta
+              question: label,
               status: statusValue,
               created_at: new Date().toISOString(),
               projectId: this.projectId,
@@ -532,11 +528,9 @@ export default {
       } catch (err) {
         console.error('Error posting discrepancies:', err);
         if (!err.response || (err.response.status && err.response.status >= 500)) {
-          this.snackbarErrorMessage =
-            'Database unavailable at the moment, please try again later.';
+          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
         } else {
-          this.snackbarErrorMessage =
-            'Failed to post discrepancies. Please try again later.';
+          this.snackbarErrorMessage = 'Failed to post discrepancies. Please try again later.';
         }
         this.snackbarError = true;
       }
@@ -559,12 +553,11 @@ export default {
     },
 
     applyFilters() {
-      console.log('Applying filters...')
-      // Filters are automatically applied via reactivity when selectedAnswers changes
+      console.log('Applying filters...');
     },
 
     updateSort() {
-      // A ordenação é feita automaticamente pelo computed property
+      // ...lógica de ordenação se necessário...
     },
 
     sortedPercentages(percentages) {
@@ -575,15 +568,15 @@ export default {
     },
 
     clearFilters() {
-      console.log('Clearing filters...')
-      this.selectedAnswers = {}
+      console.log('Clearing filters...');
+      this.selectedAnswers = {};
       this.$nextTick(() => {
-        this.applyFilters()
-      })
+        this.applyFilters();
+      });
     },
 
     goToDiscussion(item) {
-      this.$router.push(this.localePath(`/projects/${this.projectId}/discrepancies/${item.id}`))
+      this.$router.push(this.localePath(`/projects/${this.projectId}/discrepancies/${item.id}`));
     },
 
     onStatusClick(discrepancy, label, percentage) {
@@ -604,43 +597,39 @@ export default {
           this.selectedDatasetLabel,
           this.selectedPercentage
         );
-        const newStatus =
-          currentStatus === 'Agreement' ? 'Disagreement' : 'Agreement';
-        this.$set(
-          this.selectedDiscrepancy.statusOverrides,
-          this.selectedDatasetLabel,
-          newStatus
-        );
+        const newStatus = currentStatus === 'Agreement' ? 'Disagreement' : 'Agreement';
+        this.$set(this.selectedDiscrepancy.statusOverrides, this.selectedDatasetLabel, newStatus);
 
-        // Recalcula o max_percentage considerando apenas os datasets com "Disagreement"
-        const disagreementPercentages = Object.entries(
-          this.selectedDiscrepancy.percentages
-        )
+        const disagreementPercentages = Object.entries(this.selectedDiscrepancy.percentages)
           .filter(([label, pct]) => 
             this.getStatus(this.selectedDiscrepancy, label, pct) === 'Disagreement'
           )
           .map(([, pct]) => pct);
-        const newMax =
-          disagreementPercentages.length > 0
-            ? Math.max(...disagreementPercentages)
-            : 0;
+        const newMax = disagreementPercentages.length > 0 ? 
+        Math.max(...disagreementPercentages) : 0;
         this.selectedDiscrepancy.max_percentage = newMax;
 
-        this.snackbarMessage =
-          'Status atualizado e max percentage recalculado';
+        this.snackbarMessage = 'Status atualizado e max percentage recalculado';
         this.snackbar = true;
       }
       this.showStatusDialog = false;
     },
 
+    // Método getStatus que buscará o status na lista dbDiscrepancies
     getStatus(item, label, percentage) {
-      if (!item.statusOverrides) {
-        this.$set(item, 'statusOverrides', {});
+      console.log('Buscando status para o item:', item);
+      console.log('Buscando status para o label:', label);
+      console.log('Buscando questao:', this.dbDiscrepancies);
+      const dbEntry = this.dbDiscrepancies.find(d => d.question === label);
+      console.log('Buscando status para:', label, 'com percentage:', percentage);
+      console.log('Entrada encontrada na BD:', dbEntry);
+
+      if (dbEntry) {
+        return dbEntry.status;
       }
-      return item.statusOverrides[label] || (percentage >= 70 ? 'Agreement' : 'Disagreement');
+      return percentage >= 70 ? 'Agreement' : 'Disagreement';
     },
 
-    // Novo método para determinar o Overall Status com base no threshold
     overallStatus(item) {
       return item.max_percentage < this.thresholdPercentage
         ? 'Agreement'
@@ -654,7 +643,7 @@ export default {
         this.fetchPerspectiveGroups()
       ])
         .then(() => {
-          this.snackbarMessage = 'Discrepancias Geradas Automáticamente';
+          this.snackbarMessage = 'Discrepâncias Geradas Automáticamente';
           this.snackbar = true;
         })
         .catch((err) => {
