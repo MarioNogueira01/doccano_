@@ -578,7 +578,39 @@ export default {
         console.error('Falha ao exportar PDF', e)
         this.$toast?.error?.('Não foi possível exportar o PDF')
       }
-    }
+    },
+
+
+    exportCSV () {
+      const delimiter = ';'
+      const rows = [
+        ['Nome Anotador', 'Label']
+      ]
+
+      this.filteredAnnotatorsData.forEach(item => {
+        rows.push([item.name, item.labels])
+      })
+
+      const csvContent = '\uFEFF' +
+        rows
+          .map(r => r.map(item => {
+            const field = String(item)
+            const needsQuotes = field.includes(delimiter) || field.includes('"') || field.includes('\n')
+            const escaped = field.replace(/"/g, '""')
+            return needsQuotes ? `"${escaped}"` : escaped
+          }).join(delimiter))
+          .join('\r\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `hist_stats_${new Date().toISOString()}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    },
   }
 };
 </script>
