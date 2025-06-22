@@ -154,9 +154,9 @@ export default {
       labelOptions: [],
       selectedLabels: [],
       agreementOptions: [
-        { text: 'Todos', value: null },
-        { text: 'Com Acordo', value: 'agreement' },
-        { text: 'Sem Acordo', value: 'disagreement' }
+        { text: 'All', value: null },
+        { text: 'Agreement', value: 'agreement' },
+        { text: 'Disagreement', value: 'disagreement' }
       ],
       selectedAgreement: null,
       perspectiveGroups: [],
@@ -167,7 +167,8 @@ export default {
         { text: 'Label', value: 'label' },
         { text: 'Nº de Votos', value: 'votes' },
         { text: 'Acordo', value: 'agreement' }
-      ]
+      ],
+      dbDiscrepancies: []
     }
   },
   computed: {
@@ -224,7 +225,13 @@ export default {
       const tableRows = Object.values(aggregation)
       return tableRows.map(row => ({
         ...row,
-        agreement: row.agreement !== null ? (row.agreement >= 70 ? 'Acordo' : 'Desacordo') : 'N/A'
+        agreement: (() => {
+          const dbEntry = this.dbDiscrepancies.find(d => d.question === row.label);
+          if (dbEntry) {
+            return dbEntry.status;
+          }
+          return row.agreement !== null ? (row.agreement >= 70 ? 'Agreement' : 'Disagreement') : 'N/A';
+        })()
       }))
     }
   },
@@ -253,7 +260,11 @@ export default {
     // onDatasetChange removido
     async generateReport() {
       try {
-        await this.fetchStats()
+        // 1. Buscar discrepâncias da BD
+        const dbResponse = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
+        this.dbDiscrepancies = dbResponse || [];
+        // 2. Buscar os stats do relatório normalmente
+        await this.fetchStats();
       } catch (e) {
         if (!e.response || (e.response && e.response.status >= 500)) {
           this.$toast.error('Database unavailable at the moment, please try again later.')
