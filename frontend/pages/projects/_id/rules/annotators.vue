@@ -382,7 +382,7 @@ export default {
     async fetchLabels() {
       try {
         const projectId = this.$route.params.id;
-        const labelsResponse = await this.$services.label.list(projectId);
+        const labelsResponse = await this.$services.label.listAnot(projectId);
         console.log("Labels do projeto:", labelsResponse.categories);
         this.annotatorsData = this.annotatorsData.map(annotator => {
           const labelsByAnnotator = labelsResponse.categories.filter(

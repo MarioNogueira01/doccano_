@@ -30,6 +30,13 @@ export class APILabelRepository implements LabelRepository {
   async list(projectId: string): Promise<LabelItem[]> {
     const url = `/projects/${projectId}/${this.baseUrl}s`
     const response = await this.request.get(url)
+    const labels = response.data.results || response.data
+    return labels.map(toModel)
+    }
+
+  async listAnot(projectId: string): Promise<LabelItem[]> {
+    const url = `/projects/${projectId}/${this.baseUrl}s`
+    const response = await this.request.get(url)
     return response.data  
   }
 

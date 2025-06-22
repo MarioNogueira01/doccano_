@@ -21,6 +21,19 @@ export class LabelApplicationService {
     }
   }
 
+  public async listAnot(projectId: string): Promise<LabelDTO[]> {
+    try {
+      const items = await this.repository.listAnot(projectId); // Faz a requisição ao repositório
+      console.log("Labels recebidas (list):", items);
+
+      // Retorna os dados sem processamento adicional
+      return items;
+    } catch (error) {
+      console.error("Erro ao buscar labels (list):", error);
+      throw new Error("Não foi possível buscar as labels.");
+    }
+  }
+
   // Método para retornar o objeto bruto do endpoint (sem achatar)
   public async listLabels(projectId: string): Promise<any> {
     try {
