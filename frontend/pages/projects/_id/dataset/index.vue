@@ -170,6 +170,16 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+    <!-- Snackbars -->
+    <v-snackbar v-model="snackbar" top color="success">
+      {{ snackbarMessage }}
+      <v-btn text @click="snackbar = false">Close</v-btn>
+    </v-snackbar>
+    <v-snackbar v-model="snackbarError" top color="#EF5350">
+      {{ snackbarErrorMessage }}
+      <v-btn text @click="snackbarError = false">Close</v-btn>
+    </v-snackbar>
   </v-card>
 </template>
 
@@ -247,7 +257,11 @@ export default Vue.extend({
       hasError: false,
       hasUnansweredQuestions: false,
       unansweredQuestionsMessage: '',
-      disabledAnnotations: []
+      disabledAnnotations: [],
+      snackbar: false,
+      snackbarMessage: '',
+      snackbarError: false,
+      snackbarErrorMessage: ''
     }
   },
 
@@ -387,13 +401,11 @@ export default Vue.extend({
 
     movePage({ item, query }: { item: ExampleDTO; query: object }) {
       if (this.hasUnansweredQuestions) {
-        this.errorMessage = this.unansweredQuestionsMessage
+        this.snackbarErrorMessage = this.unansweredQuestionsMessage;
+        this.snackbarError = true;
         if (item && item.id && !this.disabledAnnotations.includes(item.id)) {
           this.disabledAnnotations.push(item.id)
         }
-        setTimeout(() => {
-          this.errorMessage = ''
-        }, 5000)
         return
       }
       const link = getLinkToAnnotationPage(this.projectId, this.project.projectType)
@@ -498,16 +510,19 @@ export default Vue.extend({
         // If closing project, navigate to projects list
         if (newStatus === 'closed') {
           this.$router.push('/projects');
-          this.$toasted.success('Projeto fechado!');
+          this.snackbarMessage = 'Projeto fechado!';
+          this.snackbar = true;
         } else {
           // If opening project, navigate to the project's dataset page
           this.$router.push(`/projects/${this.projectId}/dataset`);
-          this.$toasted.success('Projeto reaberto!');
+          this.snackbarMessage = 'Projeto reaberto!';
+          this.snackbar = true;
         }
         
         this.$forceUpdate();
       } catch (e) {
-        this.$toasted.error('Erro ao atualizar status do projeto.');
+        this.snackbarErrorMessage = 'Erro ao atualizar status do projeto.';
+        this.snackbarError = true;
       }
     },
     async toggleProjectStatus() {
