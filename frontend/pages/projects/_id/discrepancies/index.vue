@@ -480,7 +480,26 @@ export default {
         this.discrepancies = response.discrepancies || [];
         // Armazena os dados da BD para uso posterior
         this.dbDiscrepancies = dbResponse || [];
+        
+        // Para cada item, atualiza o max_percentage com base na BD:
+        this.discrepancies.forEach(item => {
+          const labels = Object.keys(item.percentages);
+          const disagreementValues = labels.map(label => {
+            const dbEntry = this.dbDiscrepancies.find(d =>
+              d.question.trim().toLowerCase() === label.trim().toLowerCase() &&
+              d.status === 'Disagreement'
+            );
+            return dbEntry ? dbEntry.percentage : 0;
+          });
+          const maxPercentage = disagreementValues.length > 0
+            ? Math.max(...disagreementValues)
+            : 0;
+          item.max_percentage = maxPercentage;
+        });
+        
+        // Se desejar postar discrepâncias que ainda não existem, chama o método:
         await this.postDiscrepancie(this.dbDiscrepancies);
+        await this.refreshTable();
       } catch (err) {
         console.error('Error fetching discrepancies:', err);
         if (!err.response || (err.response.status && err.response.status >= 500)) {
@@ -508,7 +527,7 @@ export default {
               continue;
             }
             const percen = item.percentages[label];
-            const statusValue = percen > this.thresholdPercentage
+            const statusValue = percen <= this.thresholdPercentage
               ? 'Disagreement'
               : 'Agreement';
             const payload = {
@@ -600,13 +619,10 @@ export default {
         const newStatus = currentStatus === 'Agreement' ? 'Disagreement' : 'Agreement';
         this.$set(this.selectedDiscrepancy.statusOverrides, this.selectedDatasetLabel, newStatus);
 
-        const disagreementPercentages = Object.entries(this.selectedDiscrepancy.percentages)
-          .filter(([label, pct]) => 
-            this.getStatus(this.selectedDiscrepancy, label, pct) === 'Disagreement'
-          )
-          .map(([, pct]) => pct);
-        const newMax = disagreementPercentages.length > 0 ? 
-        Math.max(...disagreementPercentages) : 0;
+        // Cálculo utilizando somente a dbDiscrepancies
+        const disagreementEntries = this.dbDiscrepancies.filter(entry => entry.status === 'Disagreement');
+        const percentages = disagreementEntries.map(entry => entry.percentage);
+        const newMax = percentages.length > 0 ? Math.max(...percentages) : 0;
         this.selectedDiscrepancy.max_percentage = newMax;
 
         this.snackbarMessage = 'Status atualizado e max percentage recalculado';
