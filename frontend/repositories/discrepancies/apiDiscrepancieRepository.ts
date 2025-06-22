@@ -23,4 +23,10 @@ export class ApiDiscrepancieRepository {
         const response = await ApiService.get(url)
         return response.data
     }
+
+    async updateDiscrepancyStatus(projectId: string | number, question: string) {
+        const url = `/projects/${projectId}/discrepancies/${encodeURIComponent(question)}/update-status`
+        const response = await ApiService.patch(url)
+        return response.data
+    }
 }

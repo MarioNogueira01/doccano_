@@ -456,6 +456,7 @@ export default {
   async created() {
     this.loadSelectedAnswers();
     await this.fetchDiscrepancies();
+    await this.fetchDiscrepancies();
     await this.fetchPerspectiveGroups();
   },
 
@@ -499,7 +500,6 @@ export default {
         
         // Se desejar postar discrepâncias que ainda não existem, chama o método:
         await this.postDiscrepancie(this.dbDiscrepancies);
-        await this.refreshTable();
       } catch (err) {
         console.error('Error fetching discrepancies:', err);
         if (!err.response || (err.response.status && err.response.status >= 500)) {
@@ -606,22 +606,33 @@ export default {
       console.log("Clicou no status da discrepância:", discrepancy, "para o dataset:", label);
     },
 
-    confirmChangeStatus() {
+    async confirmChangeStatus() {
       if (this.selectedDiscrepancy && this.selectedDatasetLabel) {
-        if (!this.selectedDiscrepancy.statusOverrides) {
-          this.$set(this.selectedDiscrepancy, 'statusOverrides', {});
-        }
+        // Altera o status localmente (alternando entre Agreement e Disagreement)
         const currentStatus = this.getStatus(
           this.selectedDiscrepancy,
           this.selectedDatasetLabel,
           this.selectedPercentage
         );
         const newStatus = currentStatus === 'Agreement' ? 'Disagreement' : 'Agreement';
+        if (!this.selectedDiscrepancy.statusOverrides) {
+          this.$set(this.selectedDiscrepancy, 'statusOverrides', {});
+        }
         this.$set(this.selectedDiscrepancy.statusOverrides, this.selectedDatasetLabel, newStatus);
 
-        // Cálculo utilizando somente a dbDiscrepancies
-        const disagreementEntries = this.dbDiscrepancies.filter(entry => entry.status === 'Disagreement');
-        const percentages = disagreementEntries.map(entry => entry.percentage);
+        // Chama o endpoint com PATCH – apenas uma requisição para alterar o status
+        await this.$services.discrepancy.updateDiscrepancyStatus(
+          this.projectId,
+          this.selectedDatasetLabel
+        );
+
+        await this.refreshTable();
+
+        // Recalcula o max_percentage com base na dbDiscrepancies:
+        const disagreementEntries = this.dbDiscrepancies.filter(
+          entry => entry.status === 'Disagreement'
+        );
+        const percentages = disagreementEntries.map(entry => Number(entry.percentagem));
         const newMax = percentages.length > 0 ? Math.max(...percentages) : 0;
         this.selectedDiscrepancy.max_percentage = newMax;
 

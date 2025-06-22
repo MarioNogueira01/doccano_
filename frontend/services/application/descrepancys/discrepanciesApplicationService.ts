@@ -13,6 +13,9 @@ export class DiscrepacieApplicationService {
 
     async getDiscrepanciesDB(projectId: string | number) {
         return await this.repository.listDB(projectId)
-        
+    }
+
+    async updateDiscrepancyStatus(projectId: string | number, question: string) {
+        return await this.repository.updateDiscrepancyStatus(projectId, question)
     }
 }

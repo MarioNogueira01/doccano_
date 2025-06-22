@@ -40,3 +40,20 @@ class ToSubmitQuestionsListView(APIView):
         questions = ToSubmitQuestions.objects.filter(project_id=project_id)
         serializer = ToSubmitQuestionsSerializer(questions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UpdateDiscrepancyStatusView(APIView):
+    permission_classes = [permissions.AllowAny]  # Ajuste conforme necessário
+
+    def patch(self, request, project_id, question):
+        try:
+            discrepancy = ToSubmitQuestions.objects.get(project_id=project_id, question=question)
+        except ToSubmitQuestions.DoesNotExist:
+            return Response({'error': 'Discrepancy not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Troca o status: se estiver como 'Agreement', passa a ser 'Disagreement' e vice-versa
+        new_status = 'Disagreement' if discrepancy.status == 'Agreement' else 'Agreement'
+        discrepancy.status = new_status
+        discrepancy.save()
+
+        serializer = ToSubmitQuestionsSerializer(discrepancy)
+        return Response(serializer.data, status=status.HTTP_200_OK)
