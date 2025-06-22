@@ -8,6 +8,13 @@
           <v-btn color="primary" :loading="loading" @click="generateReport">
             Gerar Relatório
           </v-btn>
+          <!-- Botões para exportação -->
+          <v-btn color="primary" outlined class="me-2" @click="exportCSV">
+            Exportar CSV
+          </v-btn>
+          <v-btn color="primary" outlined @click="exportPDF">
+            Exportar PDF da Tabela
+          </v-btn>
         </v-card-title>
       </v-card>
     </template>
@@ -217,10 +224,6 @@
           <template #[`item.labels`]="{ item }">
             <span>{{ (item.labels || []).join(', ') }}</span>
           </template>
-
-          <template #[`item.annotations`]="{ item }">
-            <span>{{ item.annotations.join(', ') }}</span>
-          </template>
         </v-data-table>
       </v-card>
     </template>
@@ -243,7 +246,6 @@ export default {
       headers: [
         { text: 'Nome do Anotador', value: 'name', sortable: true },
         { text: 'Labels', value: 'labels', sortable: true },
-        { text: 'Anotações', value: 'annotations', sortable: true }
       ],
       annotatorsData: [],
       filteredAnnotatorsData: [],
@@ -474,6 +476,108 @@ export default {
 
     generateReport() {
       alert('Relatório gerado!');
+    },
+
+
+    async loadJsPDF () {
+      if (window.jspdf && window.jspdf.jsPDF) {
+        if (!window.jspdf.jsPDF.API.autoTable) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
+            script.onload = resolve
+            script.onerror = reject
+            document.body.appendChild(script)
+          })
+        }
+        return window.jspdf.jsPDF
+      }
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.body.appendChild(script)
+      })
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.body.appendChild(script)
+      })
+      return window.jspdf.jsPDF
+    },
+    async exportPDF () {
+      try {
+
+        console.log('Iniciando exportação para PDF...');
+        const jsPDF = await this.loadJsPDF()
+        // eslint-disable-next-line new-cap
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+        
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const pageHeight = doc.internal.pageSize.getHeight()
+        const margin = 18
+
+        console.log('Largura da página:', pageWidth, 'Altura da página:', pageHeight)
+
+        doc.setFillColor(63, 81, 181)
+        doc.rect(0, 0, pageWidth, 20, 'F')
+        doc.setFontSize(16)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text('Relatório de Anotadores', pageWidth / 2, 13, { align: 'center' })
+
+        doc.setTextColor(0, 0, 0)
+
+        const addFooter = (pageNum, totalPages) => {
+          doc.setFontSize(8)
+          doc.setTextColor(150)
+          doc.text(`Página ${pageNum} / ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' })
+          doc.setTextColor(0)
+        }
+
+        console.log('Preparando dados para a tabela...')
+
+        const tableBody = this.filteredAnnotatorsData.map(item => [item.name, item.labels])
+
+        console.log('Dados da tabela preparados:', tableBody)
+        doc.autoTable({
+          head: [['Nome Anotador', 'Label']],
+          body: tableBody,
+          startY: 28,
+          margin: { left: margin, right: margin },
+          theme: 'grid',
+          headStyles: { fillColor: [63, 81, 181], halign: 'center', valign: 'middle', textColor: 255 },
+          bodyStyles: { halign: 'center' },
+          styles: { fontSize: 9 },
+          didDrawPage: (d) => {
+            if (d.pageNumber > 1) {
+              doc.setFillColor(63, 81, 181)
+              doc.rect(0, 0, pageWidth, 20, 'F')
+              doc.setFontSize(16)
+              doc.setTextColor(255)
+              doc.setFont(undefined, 'bold')
+              doc.text('Relatório de Anotações', pageWidth / 2, 13, { align: 'center' })
+              doc.setTextColor(0)
+            }
+          }
+        })
+
+        console.log('Tabela adicionada ao PDF')
+
+        const totalPages = doc.getNumberOfPages()
+        for (let i = 1; i <= totalPages; i++) {
+          doc.setPage(i)
+          addFooter(i, totalPages)
+        }
+
+        doc.save(`hist_stats_${new Date().toISOString()}.pdf`)
+      } catch (e) {
+        console.error('Falha ao exportar PDF', e)
+        this.$toast?.error?.('Não foi possível exportar o PDF')
+      }
     }
   }
 };
