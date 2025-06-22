@@ -302,6 +302,7 @@ class ToSubmitQuestions(models.Model):
     question = models.TextField() 
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, default='toSubmit')
+    percentage = models.FloatField(default=0.0)  # Percentual de respostas
 
     def __str__(self):
         return f"Discrepancy: {self.text}"

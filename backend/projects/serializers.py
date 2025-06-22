@@ -284,3 +284,8 @@ class RuleDiscussionSerializer(serializers.ModelSerializer):
         fields = ['id', 'message', 'username', 'created_at']
         read_only_fields = ['id', 'username', 'created_at']
 
+class ToSubmitQuestionsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ToSubmitQuestions
+        fields = ['project', 'question', 'created_at', 'status', 'percentage']
+

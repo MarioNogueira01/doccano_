@@ -347,8 +347,8 @@ export default {
     },
     sortedDiscrepancies() {
       return [...this.discrepancies].sort((a, b) => {
-        return this.sortOrder === 'asc' ? a.max_percentage - b.max_percentage : 
-        b.max_percentage - a.max_percentage;
+        return this.sortOrder === 'asc' ? a.percentage - b.percentage : 
+        b.percentage - a.percentage;
       });
     },
     filteredDiscrepancies() {
@@ -472,19 +472,73 @@ export default {
     },
     async fetchDiscrepancies() {
       try {
+        // Obtém as discrepâncias via endpoints
         const response = await this.$services.discrepancy.listDiscrepancie(this.projectId);
+        // Obter as discrepâncias já existentes na base de dados
+        const dbDiscrepancies = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
+        console.log('Discrepancies from DB:', dbDiscrepancies);
         console.log('Discrepancies fetched:', response);
         this.discrepancies = response.discrepancies || [];
+        // Passa as discrepâncias já existentes para o método de post
+        await this.postDiscrepancie(dbDiscrepancies);
       } catch (err) {
         console.error('Error fetching discrepancies:', err);
         if (!err.response || (err.response.status && err.response.status >= 500)) {
-          this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+          this.snackbarErrorMessage =
+            'Database unavailable at the moment, please try again later.';
         } else {
-          this.snackbarErrorMessage = 'Failed to fetch discrepancies. Please try again later.';
+          this.snackbarErrorMessage =
+            'Failed to fetch discrepancies. Please try again later.';
         }
         this.snackbarError = true;
       } finally {
         this.loading = false;
+      }
+    },
+
+    async postDiscrepancie(dbDiscrepancies) {
+      try {
+        console.log('Posting discrepancies individually:', this.discrepancies);
+        // Itera cada item (por exemplo, cada exemplo) recebido
+        for (const item of this.discrepancies) {
+          const labels = Object.keys(item.percentages);
+          for (const label of labels) {
+            // Verifica se já existe uma discrepância na BD com a mesma question (label)
+            const exists = dbDiscrepancies.some(
+              (d) => d.question === label
+            );
+            if (exists) {
+              console.log(`Discrepancy for label ${label} already exists, skipping.`);
+              continue;
+            }
+            const percen= item.percentages[label];
+            const statusValue = percen <= this.thresholdPercentage
+              ? 'Disagreement'
+              : 'Agreement';
+            const payload = {
+              question: label, // utiliza o label como a pergunta
+              status: statusValue,
+              created_at: new Date().toISOString(),
+              projectId: this.projectId,
+              percentage: percen,
+            };
+            console.log('Posting discrepancy for label:', payload);
+            const response = await this.$services.discrepancy.postDiscrepancies(
+              this.projectId, payload
+            );
+            console.log('Discrepancy posted:', response);
+          }
+        }
+      } catch (err) {
+        console.error('Error posting discrepancies:', err);
+        if (!err.response || (err.response.status && err.response.status >= 500)) {
+          this.snackbarErrorMessage =
+            'Database unavailable at the moment, please try again later.';
+        } else {
+          this.snackbarErrorMessage =
+            'Failed to post discrepancies. Please try again later.';
+        }
+        this.snackbarError = true;
       }
     },
 

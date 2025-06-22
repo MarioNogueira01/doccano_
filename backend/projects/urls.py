@@ -16,6 +16,7 @@ from .views.chat import ChatMessagesView
 from .views.rules import RulesToSubmitAnalysisView, RulesSubmitedAnalysisView
 from projects.views.votation import VotingSessionView, VotingSessionAnswerView, VotingSessionUserAnswersView, VotingSessionAnswersView
 from projects.views.rule_discussion import RuleDiscussionView  # NEW IMPORT
+from .views.tosubmit import ToSubmitQuestionsCreateView, ToSubmitQuestionsListView
 
 from .views.votacoes import (
     VotacoesView, 
@@ -88,4 +89,7 @@ urlpatterns = [
     path("projects/<int:project_id>/sessions/<str:session_id>/chat", SessionChatView.as_view(), name="session_chat"),
 
     path("projects/<int:project_id>/labels", ProjectLabelsAPI.as_view(), name="project_labels"),
+
+    path("projects/<int:project_id>/discrepancies", ToSubmitQuestionsListView.as_view(), name="list_discrepancies"),
+    path("projects/<int:project_id>/discrepancies/postdiscrepancies", ToSubmitQuestionsCreateView.as_view(), name="create_discrepancy"),
 ]
