@@ -18,6 +18,8 @@
             prepend-icon="mdi-percent"
             single-line
             hide-details
+            hint="Percentage ≥ threshold = Agreement, < threshold = Disagreement"
+            persistent-hint
           ></v-text-field>
         </v-col>
         <v-col cols="12" sm="6" class="text-right">
@@ -327,7 +329,7 @@ export default {
       loading: true,
       sortOrder: 'desc',
       search: '',
-      thresholdPercentage: 50,
+      thresholdPercentage: 70,
       headers: [
         { text: 'Text', value: 'text', sortable: true },
         { text: 'Dataset Labels', value: 'labels', sortable: false },
@@ -483,19 +485,10 @@ export default {
         // Armazena os dados da BD para uso posterior
         this.dbDiscrepancies = dbResponse || [];
         
-        // Atualiza o max_percentage usando as percentagens do fetch, 
-        // considerando apenas as labels que estão com status "Disagreement" na BD.
+        // Atualiza o max_percentage usando todas as percentagens das labels
         this.discrepancies.forEach(item => {
-          const candidatePercentages = Object.entries(item.percentages)
-            .filter(([label]) => {
-              const dbEntry = this.dbDiscrepancies.find(d =>
-                d.question.trim().toLowerCase() === label.trim().toLowerCase()
-              );
-              return dbEntry && dbEntry.status === 'Disagreement';
-            })
-            .map(([, percen]) => Number(percen) || 0);
-          const newMax = candidatePercentages.length > 0 ? Math.max(...candidatePercentages) : 0;
-          item.max_percentage = newMax;
+          const percentages = Object.values(item.percentages).map(p => Number(p) || 0);
+          item.max_percentage = percentages.length > 0 ? Math.max(...percentages) : 0;
         });
 
         console.log('autoGenerate:', this.autoGenerate);
@@ -524,7 +517,7 @@ export default {
             this.discrepancies.forEach(item => {
                 Object.keys(item.percentages).forEach(label => {
                     const percen = item.percentages[label];
-                    const statusValue = percen <= this.thresholdPercentage ? 'Disagreement' : 'Agreement';
+                    const statusValue = percen >= this.thresholdPercentage ? 'Agreement' : 'Disagreement';
                     console.log(`Verificando discrepância para '${label}' com percentual ${percen} => status calculado: ${statusValue}`);
                     const dbEntry = this.dbDiscrepancies.find(d =>
                         d.question.trim().toLowerCase() === label.trim().toLowerCase()
@@ -568,9 +561,9 @@ export default {
               continue;
             }
             const percen = item.percentages[label];
-            const statusValue = percen <= this.thresholdPercentage
-              ? 'Disagreement'
-              : 'Agreement';
+            const statusValue = percen >= this.thresholdPercentage
+              ? 'Agreement'
+              : 'Disagreement';
             const payload = {
               question: label,
               status: statusValue,
@@ -669,13 +662,11 @@ export default {
 
         await this.refreshTable();
 
-        // Recalcula o max_percentage com base na dbDiscrepancies:
-        const disagreementEntries = this.dbDiscrepancies.filter(
-          entry => entry.status === 'Disagreement'
-        );
-        const percentages = disagreementEntries.map(entry => Number(entry.percentagem));
-        const newMax = percentages.length > 0 ? Math.max(...percentages) : 0;
-        this.selectedDiscrepancy.max_percentage = newMax;
+        // Recalcula o max_percentage com base nas percentagens do próprio item
+        const percentages = 
+        Object.values(this.selectedDiscrepancy.percentages).map(p => Number(p) || 0);
+        this.selectedDiscrepancy.max_percentage = 
+        percentages.length > 0 ? Math.max(...percentages) : 0;
 
         this.snackbarMessage = 'Status atualizado e max percentage recalculado';
         this.snackbar = true;
@@ -690,11 +681,11 @@ export default {
       if (dbEntry) {
         return dbEntry.status;
       }
-      return percentage >= 70 ? 'Agreement' : 'Disagreement';
+      return percentage >= this.thresholdPercentage ? 'Agreement' : 'Disagreement';
     },
 
     overallStatus(item) {
-      return item.max_percentage < this.thresholdPercentage
+      return item.max_percentage >= this.thresholdPercentage
         ? 'Agreement'
         : 'Disagreement';
     },
