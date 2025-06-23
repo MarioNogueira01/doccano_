@@ -157,7 +157,27 @@ export default Vue.extend({
         this.showSuccess = true
       } catch (error) {
         console.error('Error creating user:', error.response ? error.response.data : error.message)
-        this.errorMessage = 'Database unavailable at the moment, please try again later.'
+        
+        // Extract specific error messages
+        if (error.response && error.response.data) {
+          const errorData = error.response.data;
+          
+          // Handle Django's password validation errors
+          if (errorData.password1) {
+            this.errorMessage = errorData.password1.join(', ');
+          } else if (errorData.password2) {
+            this.errorMessage = errorData.password2.join(', ');
+          } else if (errorData.non_field_errors) {
+            this.errorMessage = errorData.non_field_errors.join(', ');
+          } else if (typeof errorData === 'string') {
+            this.errorMessage = errorData;
+          } else {
+            // If we can't extract a specific message, use a more specific fallback
+            this.errorMessage = 'Database unavailable at the moment. Please try again later.';
+          }
+        } else {
+          this.errorMessage = 'Unable to connect to the server. Please try again later.';
+        }
       }
     },
     goBack() {
