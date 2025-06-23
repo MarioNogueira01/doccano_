@@ -137,6 +137,11 @@
         </template>
       </v-data-table>
     </v-card-text>
+
+    <v-snackbar v-model="dbErrorVisible" :timeout="4000" color="error" top>
+      {{ dbErrorMessage }}
+      <v-btn text @click="dbErrorVisible = false">Fechar</v-btn>
+    </v-snackbar>
   </v-card>
 </template>
 
@@ -168,7 +173,9 @@ export default {
         { text: 'Nº de Votos', value: 'votes' },
         { text: 'Acordo', value: 'agreement' }
       ],
-      dbDiscrepancies: []
+      dbDiscrepancies: [],
+      dbErrorVisible: false,
+      dbErrorMessage: '',
     }
   },
   computed: {
@@ -266,12 +273,14 @@ export default {
         // 2. Buscar os stats do relatório normalmente
         await this.fetchStats();
       } catch (e) {
-        if (!e.response || (e.response && e.response.status >= 500)) {
-          this.$toast.error('Database unavailable at the moment, please try again later.')
+        if (!e.response || (e.response && e.response.status >= 500) || (e.message && (e.message.includes('Network Error') || e.message.includes('Failed to fetch'))) ) {
+          this.dbErrorMessage = 'Database unavailable. Please try again later';
+          this.dbErrorVisible = true;
         } else {
-          const message = e.response?.data?.detail || 'An unexpected error occurred while generating the report.'
-          this.$toast.error(message)
-          console.error('Failed to generate report', e)
+          const message = e.response?.data?.detail || 'Ocorreu um erro inesperado ao gerar o relatório.';
+          this.dbErrorMessage = message;
+          this.dbErrorVisible = true;
+          console.error('Failed to generate report', e);
         }
       }
     },
