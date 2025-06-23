@@ -483,26 +483,24 @@ export default {
         // Armazena os dados da BD para uso posterior
         this.dbDiscrepancies = dbResponse || [];
         
-        // Para cada item, atualiza o max_percentage com base na BD:
+        // Atualiza o max_percentage usando as percentagens do fetch, 
+        // considerando apenas as labels que estão com status "Disagreement" na BD.
         this.discrepancies.forEach(item => {
-          const labels = Object.keys(item.percentages);
-          const disagreementValues = labels.map(label => {
-            const dbEntry = this.dbDiscrepancies.find(d =>
-              d.question.trim().toLowerCase() === label.trim().toLowerCase() &&
-              d.status === 'Disagreement'
-            );
-            return dbEntry ? dbEntry.percentage : 0;
-          });
-          const maxPercentage = disagreementValues.length > 0
-            ? Math.max(...disagreementValues)
-            : 0;
-          item.max_percentage = maxPercentage;
+          const candidatePercentages = Object.entries(item.percentages)
+            .filter(([label]) => {
+              const dbEntry = this.dbDiscrepancies.find(d =>
+                d.question.trim().toLowerCase() === label.trim().toLowerCase()
+              );
+              return dbEntry && dbEntry.status === 'Disagreement';
+            })
+            .map(([, percen]) => Number(percen) || 0);
+          const newMax = candidatePercentages.length > 0 ? Math.max(...candidatePercentages) : 0;
+          item.max_percentage = newMax;
         });
 
-        // Se for gerado automaticamente, verifica e atualiza os status existentes na BD
         console.log('autoGenerate:', this.autoGenerate);
         if (this.autoGenerate) {
-            this.checkingdbStatus();
+          this.checkingdbStatus();
         }
         
         // Posta discrepâncias que ainda não existem na BD:
@@ -714,7 +712,7 @@ export default {
         this.fetchPerspectiveGroups()
       ])
         .then(() => {
-          this.snackbarMessage = 'Discrepâncias Geradas Automáticamente';
+          this.snackbarMessage = 'Discrepâncias Geradas Automaticamente';
           this.snackbar = true;
         })
         .catch((err) => {
