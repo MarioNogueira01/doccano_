@@ -82,9 +82,10 @@
                   <v-row v-for="question in group.questions" :key="question.id">
                     <v-col cols="12">
                       <v-select
-                        v-if="question.data_type === 'string' && question.options.length > 0"
+                        v-if="(question.data_type === 'string' || 
+                        question.data_type === 'int') && question.options.length > 0"
                         v-model="selectedPerspectiveAnswers[question.id]"
-                        :items="question.options"
+                        :items="question.options.map(String)"
                         :label="question.question"
                         multiple
                         chips
@@ -96,6 +97,9 @@
                         v-model="selectedPerspectiveAnswers[question.id]"
                         :items="['Yes', 'No']"
                         :label="question.question"
+                        multiple
+                        chips
+                        deletable-chips
                         clearable
                       />
                       <v-text-field

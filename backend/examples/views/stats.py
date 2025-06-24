@@ -29,14 +29,18 @@ class LabelVoteHistoryView(APIView):
             try:
                 perspective_filters = json.loads(perspective_param)
                 if perspective_filters:
-                    # Esta é uma forma simplificada de filtrar. Pode precisar de ser ajustada
-                    # para uma lógica mais complexa com Q objects se necessário.
                     for question_id, value in perspective_filters.items():
-                        # Assume que o valor é único, não uma lista, para simplificar.
-                        qs = qs.filter(
-                            example__perspective_answers__perspective__id=question_id,
-                            example__perspective_answers__answer=str(value)
-                        )
+                        # Corrigido: aceita tanto lista quanto valor único
+                        if isinstance(value, list):
+                            qs = qs.filter(
+                                example__perspective_answers__perspective__id=question_id,
+                                example__perspective_answers__answer__in=[str(v) for v in value]
+                            )
+                        else:
+                            qs = qs.filter(
+                                example__perspective_answers__perspective__id=question_id,
+                                example__perspective_answers__answer=str(value)
+                            )
             except (json.JSONDecodeError, AttributeError):
                 pass  # Ignora filtros malformados
 
