@@ -355,14 +355,14 @@ export default {
       this.applyFilters()
     },
     hasPredefinedOptions (q) {
-      return (q.data_type === 'string' || q.data_type === 'int') && q.options && q.options.length > 0
+      return q.data_type === 'string' && q.options && q.options.length > 0
     },
     /* ------------------------- DYNAMIC OPTIONS ------------------------- */
     async populateDynamicOptions () {
       const service = this.$services.perspective
       for (const group of this.perspectiveGroups) {
         for (const q of group.questions) {
-          if ((q.data_type === 'string' || q.data_type === 'int') && (!q.options || q.options.length === 0)) {
+          if (q.data_type === 'string' && (!q.options || q.options.length === 0)) {
             try {
               const resp = await service.listPerspectiveAnswersByQuestion(this.projectId, q.id)
               const values = [...new Set((resp.results || resp.data || resp).map(a => a.answer))]

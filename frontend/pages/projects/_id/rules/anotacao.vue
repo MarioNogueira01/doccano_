@@ -82,8 +82,7 @@
                   <v-row v-for="question in group.questions" :key="question.id">
                     <v-col cols="12">
                       <v-select
-                        v-if="(question.data_type === 'string' || 
-                        question.data_type === 'int') && question.options.length > 0"
+                        v-if="question.data_type === 'string' && question.options.length > 0"
                         v-model="selectedPerspectiveAnswers[question.id]"
                         :items="question.options.map(String)"
                         :label="question.question"
@@ -103,11 +102,19 @@
                         clearable
                       />
                       <v-text-field
-                        v-else
+                        v-else-if="question.data_type === 'int'"
                         v-model="selectedPerspectiveAnswers[question.id]"
                         :label="question.question"
                         type="number"
                         clearable
+                        placeholder="Enter a number"
+                      />
+                      <v-text-field
+                        v-else
+                        v-model="selectedPerspectiveAnswers[question.id]"
+                        :label="question.question"
+                        clearable
+                        placeholder="Enter text"
                       />
                     </v-col>
                   </v-row>
