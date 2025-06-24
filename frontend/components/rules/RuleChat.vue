@@ -26,15 +26,9 @@
       </div>
 
       <v-divider></v-divider>
-
-      <v-text-field
-        v-model="text"
-        dense
-        hide-details
-        placeholder="Escreva uma mensagem..."
-        @keyup.enter="send"
-      ></v-text-field>
-      <v-btn small color="primary" @click="send">Enviar</v-btn>
+      <v-alert type="info" dense text>
+        Chat em modo de leitura.
+      </v-alert>
     </v-card>
 
     <v-snackbar
@@ -98,31 +92,7 @@ export default {
         this.loading = false
       }
     },
-    async send() {
-      if (!this.text.trim()) return
-      try {
-        await this.$services.ruleDiscussion.create(
-          this.projectId,
-          this.sessionId,
-          this.questionIndex,
-          this.text.trim()
-        )
-        this.text = ''
-        await this.fetchMessages()
-      } catch (e) {
-        console.error('Erro ao enviar mensagem', e)
-        if (e.response && e.response.status === 503) {
-          // Emit event to parent page for critical errors
-          this.$emit('critical-error', {
-            code: 503,
-            message: 'Serviço indisponível. O servidor está temporariamente fora do ar.'
-          })
-        } else {
-          // Handle non-critical errors locally with snackbar
-          this.showError('Erro ao enviar mensagem. Por favor, tente novamente mais tarde.')
-        }
-      }
-    },
+    async send() { /* envio desativado */ },
     showError(message) {
       this.snackbarText = message
       this.snackbarColor = 'error'
