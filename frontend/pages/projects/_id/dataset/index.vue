@@ -69,7 +69,6 @@
       <v-dialog v-model="dialogCompareForm" max-width="500">
         <form-compare-annotations
           :project-id="projectId"
-          :documents="item.items"
           :project-users="projectUsers"
           @cancel="dialogCompareForm = false"
           @compare="openComparisonDialog"
@@ -452,19 +451,17 @@ export default Vue.extend({
     },
 
 
-    openComparisonDialog(this: NuxtAppOptions, 
-      users: { user1: number; user2: number; documentId: number }) {
+    openComparisonDialog(this: NuxtAppOptions, users: { user1: number; user2: number }) {
       if (this.errorMessage || this.hasError) {
         this.dialogCompare = false;
         return;
       }
-      
-
-      this.selectedDocumentId = users.documentId;
-      this.comparisonUsers.user1 = users.user1;
-      this.comparisonUsers.user2 = users.user2;
       this.dialogCompareForm = false;
-      this.dialogCompare = true;
+      // Route to the new compare page with user1 and user2 as query params
+      this.$router.push({
+        path: `/projects/${this.projectId}/dataset/compare`,
+        query: { user1: users.user1, user2: users.user2 }
+      });
     },
 
 

@@ -8,16 +8,6 @@
         <v-row>
           <v-col cols="12">
             <v-select
-              v-model="selectedDocument"
-              :items="documents"
-              item-text="text"
-              item-value="id"
-              :label="$t('Select Document') || 'Select Document'"
-              required
-            ></v-select>
-          </v-col>
-          <v-col cols="12">
-            <v-select
               v-model="user1"
               :items="projectUsers"
               item-text="username"
@@ -63,10 +53,6 @@ export default Vue.extend({
       type: [Number, String],
       required: true
     },
-    documents: {
-      type: Array,
-      default: () => []
-    },
     projectUsers: {
       type: Array,
       default: () => []
@@ -75,47 +61,24 @@ export default Vue.extend({
 
   data() {
     return {
-      selectedDocument: null,
       user1: null,
-      user2: null,
-      isChecking: false
+      user2: null
     }
   },
 
   computed: {
     isValid() {
-      return this.selectedDocument && this.user1 && this.user2 && this.user1 !== this.user2
+      return this.user1 && this.user2 && this.user1 !== this.user2
     }
   },
 
   methods: {
-    async compare() {
-      if (!this.isValid || this.isChecking) return;
-      
-      this.isChecking = true;
-      try {
-        // Check if we can get the comparison data before emitting
-        await this.$services.annotation.getComparisonData(
-          this.projectId,
-          this.selectedDocument,
-          this.user1,
-          this.user2
-        );
-        
-        // Only emit if no error occurred
-        this.$emit('compare', {
-          documentId: this.selectedDocument,
-          user1: this.user1,
-          user2: this.user2
-        });
-      } catch (error) {
-        console.error('Error checking comparison data:', error);
-        this.$emit('error', 'Database unavailable at the moment, please try again later.');
-        // Don't emit compare event when there's an error
-        return;
-      } finally {
-        this.isChecking = false;
-      }
+    compare() {
+      if (!this.isValid) return;
+      this.$emit('compare', {
+        user1: this.user1,
+        user2: this.user2
+      });
     }
   }
 })
