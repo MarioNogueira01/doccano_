@@ -202,7 +202,19 @@ export default {
     tableData () {
       const aggregation = {}
 
+      // Agrupar stats por dataset e pegar apenas a versão mais recente de cada
+      const latestStatsByDataset = {}
+      
       this.stats.forEach(s => {
+        const datasetName = s.dataset
+        if (!latestStatsByDataset[datasetName] || s.version > 
+        latestStatsByDataset[datasetName].version) {
+          latestStatsByDataset[datasetName] = s
+        }
+      })
+
+      // Processar apenas as versões mais recentes
+      Object.values(latestStatsByDataset).forEach(s => {
         const datasetName = s.dataset
         const key = datasetName
 
@@ -231,10 +243,8 @@ export default {
           }
 
           aggregation[key].labels.add(label)
-          if (!aggregation[key].votesPerLabel[label]) {
-            aggregation[key].votesPerLabel[label] = 0
-          }
-          aggregation[key].votesPerLabel[label] += s.votes[idx]
+          // Usar apenas os votos da versão mais recente, não somar
+          aggregation[key].votesPerLabel[label] = s.votes[idx]
 
           const dbEntry = this.dbDiscrepancies.find(d => d.question === label)
           if (dbEntry) {
