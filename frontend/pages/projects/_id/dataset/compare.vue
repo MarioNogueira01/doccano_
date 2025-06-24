@@ -1,5 +1,13 @@
 <template>
     <v-container fluid>
+      <!-- Error message as pop-up central superior -->
+      <transition name="fade">
+        <div v-if="errorMessage" class="error-message">
+          <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
+          {{ errorMessage }}
+        </div>
+      </transition>
+
       <v-card>
         <v-card-title>
           <v-icon left color="primary">mdi-compare-multiple</v-icon>
@@ -76,6 +84,8 @@
       let labels = []
       let users = []
       let selectedUsers = []
+      let errorMessage = ''
+      
       try {
         documents = (await $services.example.list(projectId, {})).items || []
         const project = await store.getters['projects/project']
@@ -84,17 +94,40 @@
         console.log('Compare page - All users from member list:', users)
         console.log('Compare page - User IDs to filter by:', userIds)
         
+        // Log each user's properties
+        users.forEach((user, index) => {
+          console.log(`User ${index}: id=${user.id}, user=${user.user}, username=${user.username}`)
+        })
+        
         selectedUsers = users.filter(user => userIds.includes(user.user))
         console.log('Compare page - Selected users after filtering:', selectedUsers)
       } catch (e) {
         console.error('Compare page - Error loading data:', e)
-        // handle error
+        
+        // Handle database unavailable error (503)
+        if (!e.response || (e.response && e.response.status >= 500)) {
+          errorMessage = 'Database unavailable at the moment, please try again later.'
+        } else {
+          errorMessage = e.response?.data?.detail || 'An error occurred while loading the comparison data.'
+        }
       }
-      return { projectId, 
-        userIds, documents, labels, users, selectedUsers, loading: false }
+      
+      return { 
+        projectId, 
+        userIds, 
+        documents, 
+        labels, 
+        users, 
+        selectedUsers, 
+        loading: false,
+        errorMessage
+      }
     },
     data() {
-      return { loading: false }
+      return { 
+        loading: false,
+        errorMessage: ''
+      }
     },
     methods: {
       getUserColor(index: number): string {
@@ -107,4 +140,32 @@
       }
     }
   })
-  </script> 
+  </script>
+
+<style scoped>
+.error-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background-color: #fdecea;
+  color: #b71c1c;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
+</style> 

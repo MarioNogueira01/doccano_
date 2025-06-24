@@ -262,7 +262,8 @@ export default Vue.extend({
       snackbar: false,
       snackbarMessage: '',
       snackbarError: false,
-      snackbarErrorMessage: ''
+      snackbarErrorMessage: '',
+      loading: false
     }
   },
 
@@ -452,7 +453,7 @@ export default Vue.extend({
       this.item = await this.$services.example.list(this.projectId, this.$route.query)
     },
 
-    openMultiUserComparisonDialog(
+    async openMultiUserComparisonDialog(
       this: NuxtAppOptions, 
       comparisonData: { users: number[] }
     ) {
@@ -463,15 +464,48 @@ export default Vue.extend({
         this.dialogCompare = false;
         return;
       }
-      this.dialogCompareForm = false;
       
-      // Route to the compare page with users as query params
-      const userIds = comparisonData.users.join(',');
-      console.log('openMultiUserComparisonDialog - Routing with user IDs:', userIds)
-      this.$router.push({
-        path: `/projects/${this.projectId}/dataset/compare`,
-        query: { users: userIds }
-      });
+      // Show loading state
+      this.loading = true;
+      
+      try {
+        // Test if we can load the required data before navigating
+        const userIds = comparisonData.users.join(',');
+        console.log('openMultiUserComparisonDialog - Testing data load with user IDs:', userIds)
+        
+        // Test loading documents and users to ensure database is available
+        await this.$services.example.list(this.projectId, {});
+        await this.$repositories.member.list(this.projectId);
+        
+        // If we get here, data loading was successful, so we can navigate
+        this.dialogCompareForm = false;
+        this.loading = false;
+        
+        console.log('openMultiUserComparisonDialog - Data load successful, routing with user IDs:', userIds)
+        this.$router.push({
+          path: `/projects/${this.projectId}/dataset/compare`,
+          query: { users: userIds }
+        });
+      } catch (error) {
+        console.error('openMultiUserComparisonDialog - Error testing data load:', error)
+        this.loading = false;
+        
+        // Handle database unavailable error (503)
+        if (!error.response || (error.response && error.response.status >= 500)) {
+          this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.errorMessage = error.response?.data?.detail || 'An error occurred while preparing the comparison.';
+        }
+        
+        // Close the form and show error instead of navigating
+        this.dialogCompareForm = false;
+        this.dialogCompare = false;
+        
+        // Auto-clear error message after 5 seconds
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
     },
 
     handleNoAnnotations(event) {
