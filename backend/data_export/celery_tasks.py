@@ -607,3 +607,144 @@ def export_annotation_history_pdf(project_id, dataset_name=None, annotation_stat
         if os.path.exists(dirpath):
             shutil.rmtree(dirpath)
         raise
+
+
+@shared_task(autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True)
+def export_perspective_history_pdf(project_id, dataset_name=None, annotation_status='All'):
+    project = get_object_or_404(Project, pk=project_id)
+    dirpath = os.path.join(settings.MEDIA_ROOT, str(uuid.uuid4()))
+    os.makedirs(dirpath, exist_ok=True)
+    
+    filepath = os.path.join(dirpath, "perspective_history.pdf")
+    logger.info(f"Creating perspective history PDF at: {filepath}")
+
+    try:
+        # Create the PDF document
+        doc = SimpleDocTemplate(
+            filepath,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+
+        # Create styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=30
+        )
+        normal_style = styles['Normal']
+
+        # Create content
+        content = []
+        
+        # Add title
+        title = Paragraph(f"Perspective History Report - {project.name}", title_style)
+        content.append(title)
+        content.append(Spacer(1, 12))
+
+        # Add report info
+        info_text = f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        if dataset_name:
+            info_text += f"\nDataset: {dataset_name}"
+        info_text += f"\nAnnotation Status: {annotation_status}"
+        
+        info_paragraph = Paragraph(info_text, normal_style)
+        content.append(info_paragraph)
+        content.append(Spacer(1, 20))
+
+        # Get the data
+        examples_queryset = Example.objects.filter(project=project).prefetch_related(
+            'perspective_answers',
+            'perspective_answers__perspective',
+            'perspective_answers__created_by'
+        )
+
+        if dataset_name:
+            examples_queryset = examples_queryset.filter(
+                Q(filename__icontains=dataset_name) |
+                Q(upload_name__icontains=dataset_name)
+            )
+
+        # Create table data for perspectives only
+        table_data = [['Question', 'Answer', 'Answered By', 'Answer Date', 'Dataset', 'Example Text']]
+        
+        for example in examples_queryset:
+            try:
+                current_dataset_name = "N/A"
+                if example.filename and example.filename.name:
+                    current_dataset_name = os.path.basename(example.filename.name)
+                elif example.upload_name:
+                    current_dataset_name = example.upload_name
+
+                perspective_answers = example.perspective_answers.all()
+                
+                if perspective_answers:
+                    for pa in perspective_answers:
+                        row = [
+                            pa.perspective.question,
+                            pa.answer,
+                            pa.created_by.username if pa.created_by else 'N/A',
+                            pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if pa.created_at else 'N/A',
+                            current_dataset_name,
+                            example.text[:100] + "..." if len(example.text) > 100 else example.text
+                        ]
+                        table_data.append(row)
+                else:
+                    # Add a row indicating no perspectives for this example
+                    row = [
+                        'N/A',
+                        'N/A',
+                        'N/A',
+                        'N/A',
+                        current_dataset_name,
+                        example.text[:100] + "..." if len(example.text) > 100 else example.text
+                    ]
+                    table_data.append(row)
+
+            except Exception as e:
+                logger.error(f"Error processing example {example.id}: {e}", exc_info=True)
+                continue
+
+        # Create table
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('WORDWRAP', (0, 0), (-1, -1), True),
+        ]))
+
+        content.append(table)
+        
+        # Build PDF
+        doc.build(content)
+
+        # Verify the file was created and has content
+        if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+            logger.info(f"Successfully created perspective history PDF at: {filepath}")
+            return filepath
+        else:
+            logger.error(f"Failed to create perspective history PDF at: {filepath}")
+            raise Exception("Failed to create perspective history PDF")
+
+    except Exception as e:
+        logger.error(f"Error in export_perspective_history_pdf: {e}", exc_info=True)
+        # Clean up the directory if there was an error
+        if os.path.exists(dirpath):
+            shutil.rmtree(dirpath)
+        raise
