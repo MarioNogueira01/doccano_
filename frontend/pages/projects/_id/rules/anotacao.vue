@@ -178,8 +178,7 @@ export default {
         { text: 'Labels', value: 'label' },
         { text: 'Nº de Votos', value: 'votes' },
         { text: 'Acordo', value: 'agreement' }
-      ],
-      dbDiscrepancies: []
+      ]
     }
   },
   computed: {
@@ -223,20 +222,11 @@ export default {
             dataset: datasetName,
             labels: new Set(),
             votesPerLabel: {},
-            agreementValues: [],
-            dbStatuses: new Set()
+            totalVotes: 0
           }
         }
 
         s.labels.forEach((label, idx) => {
-          const agreementPercentage = s.agreement ? s.agreement[idx] : null
-
-          if (this.selectedAgreement) {
-            const hasAgreement = agreementPercentage !== null && agreementPercentage >= 70
-            if (this.selectedAgreement === 'agreement' && !hasAgreement) return
-            if (this.selectedAgreement === 'disagreement' && hasAgreement) return
-          }
-
           const showAllLabels = this.selectedLabels.length === 0 || this.selectedLabels.includes('Todas as Labels')
           if (!showAllLabels && !this.selectedLabels.includes(label)) {
             return
@@ -245,31 +235,23 @@ export default {
           aggregation[key].labels.add(label)
           // Usar apenas os votos da versão mais recente, não somar
           aggregation[key].votesPerLabel[label] = s.votes[idx]
-
-          const dbEntry = this.dbDiscrepancies.find(d => d.question === label)
-          if (dbEntry) {
-            aggregation[key].dbStatuses.add(dbEntry.status)
-          } else if (agreementPercentage !== null) {
-            aggregation[key].agreementValues.push(agreementPercentage)
-          }
+          aggregation[key].totalVotes += s.votes[idx]
         })
       })
 
       const tableRows = Object.values(aggregation).filter(agg => agg.labels.size > 0)
 
-      return tableRows.map(row => {
+      const processedRows = tableRows.map(row => {
+        // Calcular percentagem final para determinar acordo/desacordo
         let agreement = 'N/A'
-
-        if (row.dbStatuses.size > 0) {
-          if (row.dbStatuses.has('Disagreement')) {
-            agreement = 'Disagreement'
-          } else if (row.dbStatuses.has('Agreement')) {
-            agreement = 'Agreement'
-          }
-        } else if (row.agreementValues.length > 0) {
-          const totalAgreement = row.agreementValues.reduce((sum, val) => sum + val, 0)
-          const overallAgreement = totalAgreement / row.agreementValues.length
-          agreement = overallAgreement >= 70 ? 'Agreement' : 'Disagreement'
+        
+        if (row.totalVotes > 0) {
+          // Calcular a percentagem da label com mais votos
+          const maxVotes = Math.max(...Object.values(row.votesPerLabel))
+          const maxPercentage = (maxVotes / row.totalVotes) * 100
+          
+          // Definir acordo se a percentagem for >= 70%
+          agreement = maxPercentage >= 70 ? 'Agreement' : 'Disagreement'
         }
 
         const sortedLabels = Array.from(row.labels).sort()
@@ -283,6 +265,20 @@ export default {
           agreement
         }
       })
+
+      // Aplicar filtro de acordo
+      if (this.selectedAgreement) {
+        return processedRows.filter(row => {
+          if (this.selectedAgreement === 'agreement') {
+            return row.agreement === 'Agreement'
+          } else if (this.selectedAgreement === 'disagreement') {
+            return row.agreement === 'Disagreement'
+          }
+          return true
+        })
+      }
+
+      return processedRows
     }
   },
   watch: {
@@ -310,10 +306,7 @@ export default {
     // onDatasetChange removido
     async generateReport() {
       try {
-        // 1. Buscar discrepâncias da BD
-        const dbResponse = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
-        this.dbDiscrepancies = dbResponse || [];
-        // 2. Buscar os stats do relatório normalmente
+        // Buscar os stats do relatório
         await this.fetchStats();
       } catch (e) {
         if (!e.response || (e.response && e.response.status >= 500)) {
