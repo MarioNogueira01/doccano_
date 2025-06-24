@@ -113,6 +113,14 @@
             <v-card-title class="px-0">
               <h2 class="text-h5">Discrepancies</h2>
               <v-spacer></v-spacer>
+              <v-select
+                v-model="discrepancyFilter"
+                :items="discrepancyFilterOptions"
+                label="Filter by Type"
+                dense
+                outlined
+                style="max-width: 200px; margin-right: 16px;"
+              ></v-select>
               <v-btn
                 color="primary"
                 class="mr-2"
@@ -136,7 +144,7 @@
             
             <v-data-table
               :headers="discrepancyHeaders"
-              :items="discrepancies.map(d => ({ ...d, perspective_answers: undefined }))"
+              :items="filteredDiscrepancies"
               :loading="loadingDiscrepancies"
               class="elevation-1"
             ></v-data-table>
@@ -329,6 +337,8 @@ export default {
       reportTypes: ['Annotation History'],
       showDiscrepanciesExportDialog: false,
       selectedDiscrepanciesExportFormat: 'pdf',
+      discrepancyFilter: 'All',
+      discrepancyFilterOptions: ['All', 'Agreements', 'Disagreements'],
     };
   },
   computed: {
@@ -377,6 +387,12 @@ export default {
         });
       }
       return this.perspectives;
+    },
+    filteredDiscrepancies() {
+      if (this.discrepancyFilter === 'All') return this.discrepancies;
+      if (this.discrepancyFilter === 'Agreements') return this.discrepancies.filter(d => d.is_discrepancy === false);
+      if (this.discrepancyFilter === 'Disagreements') return this.discrepancies.filter(d => d.is_discrepancy === true);
+      return this.discrepancies;
     }
   },
   created() {
@@ -1207,7 +1223,7 @@ export default {
             'Is Discrepancy',
             'Max. Percentage'
           ]],
-          body: this.discrepancies.map(item => [
+          body: this.filteredDiscrepancies.map(item => [
             item.example_id || 'N/A',
             (item.text || 'N/A').substring(0, 40) + (item.text && item.text.length > 40 ? '...' : ''),
             item.is_discrepancy ? 'Yes' : 'No',
@@ -1269,7 +1285,7 @@ export default {
           ['Example ID', 'Text', 'Is Discrepancy', 'Max. Percentage']
         ]
         // Add discrepancies data
-        const discrepancyRows = this.discrepancies.map(item => [
+        const discrepancyRows = this.filteredDiscrepancies.map(item => [
           item.example_id,
           item.text,
           item.is_discrepancy ? 'Yes' : 'No',

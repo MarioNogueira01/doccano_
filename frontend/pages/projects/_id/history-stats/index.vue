@@ -30,6 +30,21 @@
         @change="applyFilters"
       />
 
+      <!-- NEW: Agreement / Disagreement filter -->
+      <v-select
+        v-model="selectedStatus"
+        :items="statusOptions"
+        item-text="text"
+        item-value="value"
+        label="Status"
+        dense
+        hide-details
+        clearable
+        class="me-2"
+        style="max-width: 160px"
+        @change="applyFilters"
+      />
+
       <!-- Filtro de data -->
       <v-menu v-model="dateMenu" :close-on-content-click="false" transition="scale-transition">
         <template #activator="{ on }">
@@ -232,6 +247,13 @@ export default {
       selectedDataset: null,
       versionOptions: [],
       selectedVersion: null,
+      // NEW: status filter
+      statusOptions: [
+        { text: 'Todos', value: null },
+        { text: 'Acordo', value: 'agreement' },
+        { text: 'Desacordo', value: 'disagreement' }
+      ],
+      selectedStatus: null,
       // Perspective filters
       perspectiveFilterDialog: false,
       perspectiveGroups: [],
@@ -317,6 +339,11 @@ export default {
       // Perspective filters
       if (Object.keys(this.selectedPerspectiveAnswers).length > 0) {
         params.perspective_filters = JSON.stringify(this.selectedPerspectiveAnswers)
+      }
+
+      // NEW: overall status filter
+      if (this.selectedStatus) {
+        params.overall_status = this.selectedStatus
       }
       return params
     },

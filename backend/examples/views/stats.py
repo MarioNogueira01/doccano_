@@ -77,6 +77,56 @@ class LabelVoteHistoryView(APIView):
                 if has_any_filter:
                     qs = qs.filter(combined_q_filters).distinct()
 
+        # ------------------------------------------------------------------
+        # Agreement / Disagreement filter based on overall example status
+        # overall_status can be "agreement" or "disagreement" (case-insensitive)
+        # A status is considered "agreement" when the max percentage of any label
+        # for a given example is >= threshold (default 70). Otherwise it's
+        # considered "disagreement".
+        # ------------------------------------------------------------------
+
+        status_param = request.query_params.get("overall_status")
+        if status_param:
+            status_param = status_param.lower()
+            if status_param in {"agreement", "disagreement"}:
+                try:
+                    threshold = int(request.query_params.get("threshold", 70))
+                except ValueError:
+                    threshold = 70
+
+                # Aggregate counts per example and label
+                agg = (
+                    qs.values("example_id", "label_id")
+                    .annotate(cnt=Count("id"))
+                    .order_by()
+                )
+
+                example_totals = {}
+                example_max = {}
+                for row in agg:
+                    eid = row["example_id"]
+                    cnt = row["cnt"]
+                    example_totals[eid] = example_totals.get(eid, 0) + cnt
+                    example_max[eid] = max(example_max.get(eid, 0), cnt)
+
+                matching_example_ids = []
+                for eid in example_totals.keys():
+                    total = example_totals[eid]
+                    if total == 0:
+                        continue
+                    max_cnt = example_max[eid]
+                    percentage = (max_cnt / total) * 100
+                    is_discrepancy = percentage < threshold
+                    status = "disagreement" if is_discrepancy else "agreement"
+                    if status == status_param:
+                        matching_example_ids.append(eid)
+
+                # If no examples match, return empty response early
+                if not matching_example_ids:
+                    return Response([])
+
+                qs = qs.filter(example_id__in=matching_example_ids)
+
         before_param = request.query_params.get("before")
         if before_param:
             try:
