@@ -164,7 +164,7 @@ export default {
       search: '',
       tableHeaders: [
         { text: 'Dataset', value: 'dataset' },
-        { text: 'Label', value: 'label' },
+        { text: 'Labels', value: 'label' },
         { text: 'Nº de Votos', value: 'votes' },
         { text: 'Acordo', value: 'agreement' }
       ],
@@ -188,51 +188,80 @@ export default {
       return 'mdi-checkbox-blank-outline'
     },
 
-    tableData() {
+    tableData () {
       const aggregation = {}
 
       this.stats.forEach(s => {
         const datasetName = s.dataset
+        const key = datasetName
+
+        if (!aggregation[key]) {
+          aggregation[key] = {
+            dataset: datasetName,
+            labels: new Set(),
+            votesPerLabel: {},
+            agreementValues: [],
+            dbStatuses: new Set()
+          }
+        }
+
         s.labels.forEach((label, idx) => {
           const agreementPercentage = s.agreement ? s.agreement[idx] : null
 
-          // Filtro de Acordo
           if (this.selectedAgreement) {
             const hasAgreement = agreementPercentage !== null && agreementPercentage >= 70
             if (this.selectedAgreement === 'agreement' && !hasAgreement) return
             if (this.selectedAgreement === 'disagreement' && hasAgreement) return
           }
 
-          // Aplica o filtro de labels aqui
           const showAllLabels = this.selectedLabels.length === 0 || this.selectedLabels.includes('Todas as Labels')
           if (!showAllLabels && !this.selectedLabels.includes(label)) {
-            return // Pula esta label se não estiver selecionada
+            return
           }
 
-          const key = `${datasetName}-${label}`
-          if (!aggregation[key]) {
-            aggregation[key] = {
-              dataset: datasetName,
-              label,
-              votes: 0,
-              agreement: agreementPercentage
-            }
+          aggregation[key].labels.add(label)
+          if (!aggregation[key].votesPerLabel[label]) {
+            aggregation[key].votesPerLabel[label] = 0
           }
-          aggregation[key].votes += s.votes[idx]
+          aggregation[key].votesPerLabel[label] += s.votes[idx]
+
+          const dbEntry = this.dbDiscrepancies.find(d => d.question === label)
+          if (dbEntry) {
+            aggregation[key].dbStatuses.add(dbEntry.status)
+          } else if (agreementPercentage !== null) {
+            aggregation[key].agreementValues.push(agreementPercentage)
+          }
         })
       })
-      
-      const tableRows = Object.values(aggregation)
-      return tableRows.map(row => ({
-        ...row,
-        agreement: (() => {
-          const dbEntry = this.dbDiscrepancies.find(d => d.question === row.label);
-          if (dbEntry) {
-            return dbEntry.status;
+
+      const tableRows = Object.values(aggregation).filter(agg => agg.labels.size > 0)
+
+      return tableRows.map(row => {
+        let agreement = 'N/A'
+
+        if (row.dbStatuses.size > 0) {
+          if (row.dbStatuses.has('Disagreement')) {
+            agreement = 'Disagreement'
+          } else if (row.dbStatuses.has('Agreement')) {
+            agreement = 'Agreement'
           }
-          return row.agreement !== null ? (row.agreement >= 70 ? 'Agreement' : 'Disagreement') : 'N/A';
-        })()
-      }))
+        } else if (row.agreementValues.length > 0) {
+          const totalAgreement = row.agreementValues.reduce((sum, val) => sum + val, 0)
+          const overallAgreement = totalAgreement / row.agreementValues.length
+          agreement = overallAgreement >= 70 ? 'Agreement' : 'Disagreement'
+        }
+
+        const sortedLabels = Array.from(row.labels).sort()
+        const labelsStr = sortedLabels.join(', ')
+        const votesStr = sortedLabels.map(label => row.votesPerLabel[label] || 0).join(', ')
+
+        return {
+          dataset: row.dataset,
+          label: labelsStr,
+          votes: votesStr,
+          agreement
+        }
+      })
     }
   },
   watch: {
@@ -325,7 +354,7 @@ export default {
     exportCSV () {
       const delimiter = ';'
       const rows = [
-        ['Dataset', 'Label', 'Nº de Votos', 'Acordo']
+        ['Dataset', 'Labels', 'Nº de Votos', 'Acordo']
       ]
 
       this.tableData.forEach(item => {
@@ -410,7 +439,7 @@ export default {
         const tableBody = this.tableData.map(item => [item.dataset, item.label, 
         item.votes, item.agreement])
         doc.autoTable({
-          head: [['Dataset', 'Label', 'Nº de Votos', 'Acordo']],
+          head: [['Dataset', 'Labels', 'Nº de Votos', 'Acordo']],
           body: tableBody,
           startY: 28,
           margin: { left: margin, right: margin },
