@@ -184,20 +184,6 @@ export default {
   computed: {
     projectId () { return this.$route.params.id },
 
-    allLabelsSelected () {
-      return this.selectedLabels.length === this.labelOptions.length
-    },
-
-    someLabelsSelected () {
-      return this.selectedLabels.length > 0 && !this.allLabelsSelected
-    },
-
-    selectAllIcon () {
-      if (this.allLabelsSelected) return 'mdi-close-box'
-      if (this.someLabelsSelected) return 'mdi-minus-box'
-      return 'mdi-checkbox-blank-outline'
-    },
-
     tableData () {
       const aggregation = {}
 
@@ -241,7 +227,10 @@ export default {
 
       const tableRows = Object.values(aggregation).filter(agg => agg.labels.size > 0)
 
-      const processedRows = tableRows.map(row => {
+      // Desagrupar labels - criar uma linha para cada label
+      const processedRows = []
+      
+      tableRows.forEach(row => {
         // Calcular percentagem final para determinar acordo/desacordo
         let agreement = 'N/A'
         
@@ -254,16 +243,16 @@ export default {
           agreement = maxPercentage >= 70 ? 'Agreement' : 'Disagreement'
         }
 
+        // Criar uma linha separada para cada label
         const sortedLabels = Array.from(row.labels).sort()
-        const labelsStr = sortedLabels.join(', ')
-        const votesStr = sortedLabels.map(label => row.votesPerLabel[label] || 0).join(', ')
-
-        return {
-          dataset: row.dataset,
-          label: labelsStr,
-          votes: votesStr,
-          agreement
-        }
+        sortedLabels.forEach(label => {
+          processedRows.push({
+            dataset: row.dataset,
+            label,
+            votes: row.votesPerLabel[label] || 0,
+            agreement
+          })
+        })
       })
 
       // Aplicar filtro de acordo
@@ -332,15 +321,6 @@ export default {
         params.perspective_filters = JSON.stringify(this.selectedPerspectiveAnswers)
       }
       return params
-    },
-    toggleSelectAllLabels () {
-      this.$nextTick(() => {
-        if (this.allLabelsSelected) {
-          this.selectedLabels = []
-        } else {
-          this.selectedLabels = this.labelOptions.slice()
-        }
-      })
     },
     async fetchStats () {
       const baseParams = this.buildParams()
