@@ -1,39 +1,23 @@
 <template>
-  <v-dialog v-model="dialog" max-width="500">
+  <v-dialog v-model="dialog" max-width="700">
     <v-card>
       <v-card-title>
-        {{ $t('compare_annotations') || 'Compare Annotations' }}
+        {{ $t('compare_annotations') || 'Multi-User Annotation Comparison' }}
       </v-card-title>
       <v-card-text>
         <v-container>
           <v-row>
             <v-col cols="12">
               <v-select
-                v-model="selectedDocument"
-                :items="documents"
-                item-text="text"
-                item-value="id"
-                :label="$t('select_document') || 'Select Document'"
-                required
-              ></v-select>
-            </v-col>
-            <v-col cols="12">
-              <v-select
-                v-model="user1"
+                v-model="selectedUsers"
                 :items="projectUsers"
                 item-text="username"
-                item-value="id"
-                :label="$t('first_user') || 'First User'"
-                required
-              ></v-select>
-            </v-col>
-            <v-col cols="12">
-              <v-select
-                v-model="user2"
-                :items="projectUsers"
-                item-text="username"
-                item-value="id"
-                :label="$t('second_user') || 'Second User'"
+                item-value="user"
+                :label="$t('select_users') || 'Select Users to Compare'"
+                multiple
+                chips
+                persistent-hint
+                hint="Select 2 or more users to compare their annotations across all documents"
                 required
               ></v-select>
             </v-col>
@@ -81,9 +65,7 @@ export default Vue.extend({
 
   data() {
     return {
-      selectedDocument: null,
-      user1: null,
-      user2: null
+      selectedUsers: []
     }
   },
 
@@ -97,24 +79,22 @@ export default Vue.extend({
       }
     },
     isValid() {
-      return this.selectedDocument && this.user1 && this.user2 && this.user1 !== this.user2
+      return this.selectedUsers && this.selectedUsers.length >= 2
     }
   },
 
   methods: {
     close() {
       this.dialog = false
-      this.selectedDocument = null
-      this.user1 = null
-      this.user2 = null
+      this.selectedUsers = []
     },
 
     compare() {
       if (this.isValid) {
+        console.log('FormCompareAnnotations - Selected users:', this.selectedUsers)
+        console.log('FormCompareAnnotations - Emitting compare event with users:', this.selectedUsers)
         this.$emit('compare', {
-          documentId: this.selectedDocument,
-          user1: this.user1,
-          user2: this.user2
+          users: this.selectedUsers
         })
         this.close()
       }

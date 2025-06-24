@@ -10,6 +10,7 @@ from examples.models import Example
 # Import the correct model for your annotations
 # This may vary depending on project type - adjust as needed
 from labels.models import Span, CategoryType, TextLabel, Category
+from label_types.models import LabelType, SpanType, RelationType
 from django.db.models import Q
 
 class UserAnnotationsAPI(APIView):
@@ -77,7 +78,8 @@ class UserAnnotationsAPI(APIView):
                     'id': span.id,
                     'start_offset': span.start_offset,
                     'end_offset': span.end_offset,
-                    'label': span.label_id
+                    'label': span.label_id,
+                    'label_text': span.label.text if span.label else None
                 })
                 
         elif project_type == 'DocumentClassification':
@@ -86,6 +88,20 @@ class UserAnnotationsAPI(APIView):
                 example=example,
                 user_id=user_id
             ).select_related('label')  # Add select_related to optimize the query
+            
+            print(f"Found {annotations.count()} categories")
+            
+            # Debug: Check all categories for this example
+            all_categories = Category.objects.filter(example=example)
+            print(f"All categories for document {doc_id}: {all_categories.count()}")
+            for cat in all_categories:
+                print(f"  Category {cat.id}: user={cat.user_id}, label={cat.label_id if cat.label else None}")
+            
+            # Debug: Check categories for this specific user
+            user_categories = Category.objects.filter(example=example, user_id=user_id)
+            print(f"Categories for user {user_id}: {user_categories.count()}")
+            for cat in user_categories:
+                print(f"  User category {cat.id}: label={cat.label_id if cat.label else None}")
             
             # Serialize the categories
             result = []
@@ -104,6 +120,8 @@ class UserAnnotationsAPI(APIView):
                 user_id=user_id
             )
             
+            print(f"Found {annotations.count()} text labels")
+            
             # Serialize text labels
             result = []
             for text_label in annotations:
@@ -116,21 +134,28 @@ class UserAnnotationsAPI(APIView):
             # Unknown project type
             result = []
 
-        # Add mock data for testing - make sure this runs!
-        print(f"Checking whether to add mock data: project={project_id}, doc={doc_id}")
-        if project_id == '7' and doc_id == '339' and len(result) == 0:
-            print(f"Adding mock data for user {user_id}")
-            if user_id == '9':  # Admin user
-                result = [
-                    {'id': 101, 'start_offset': 0, 'end_offset': 6, 'label': 1},
-                    {'id': 102, 'start_offset': 20, 'end_offset': 30, 'label': 2}
-                ]
-            elif user_id == '10':  # TestePrespetiva user
-                result = [
-                    {'id': 201, 'start_offset': 0, 'end_offset': 6, 'label': 1},
-                    {'id': 202, 'start_offset': 40, 'end_offset': 50, 'label': 3}
-                ]
-            print(f"Mock data added. Result now has {len(result)} items")
+        # Get all labels for this project to include in response
+        from label_types.models import CategoryType, SpanType, RelationType
+        
+        # Determine which label type to use based on project type
+        if project_type == 'DocumentClassification':
+            project_labels = CategoryType.objects.filter(project=project)
+        elif project_type == 'SequenceLabeling':
+            project_labels = SpanType.objects.filter(project=project)
+        elif project_type == 'Seq2seq':
+            project_labels = SpanType.objects.filter(project=project)  # Use SpanType for text labels too
+        else:
+            # Fallback to CategoryType for unknown project types
+            project_labels = CategoryType.objects.filter(project=project)
+            
+        labels_data = []
+        for label in project_labels:
+            labels_data.append({
+                'id': label.id,
+                'text': label.text,
+                'backgroundColor': label.background_color,
+                'textColor': label.text_color
+            })
 
         # Update the response format
         return Response({
@@ -139,5 +164,6 @@ class UserAnnotationsAPI(APIView):
                 'project_type': project_type,
                 'example_id': example.id,
                 'user_id': user_id
-            }
+            },
+            'labels': labels_data
         })
