@@ -202,10 +202,10 @@ export default {
           isVisible: true
         },
         {
-          icon: mdiDatabase,
+          icon: mdiAlertCircleOutline,
           text: 'Discrepancies',
           link: 'discrepancies',
-          isVisible: false
+          isVisible: !this.isProjectAdmin
         },
 
         {

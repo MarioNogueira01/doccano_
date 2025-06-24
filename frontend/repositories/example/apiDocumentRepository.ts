@@ -106,12 +106,12 @@ export class APIExampleRepository implements ExampleRepository {
 
   async bulkDelete(projectId: string, ids: number[]): Promise<void> {
     const url = `/projects/${projectId}/examples`
-    await this.request.delete(url, { ids })
+    await this.request.delete(url, { data: { ids } })
   }
 
   async deleteAll(projectId: string): Promise<void> {
     const url = `/projects/${projectId}/examples`
-    await this.request.delete(url)
+    await this.request.delete(url, { data: { ids: [] } })
   }
 
   async findById(projectId: string, exampleId: number): Promise<ExampleItem> {

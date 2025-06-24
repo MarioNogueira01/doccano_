@@ -47,14 +47,14 @@
               cols="6"
               class="pb-4"
             >
-              <strong>{{ ann.user }}</strong>
+              <strong :style="{ color: getUserColor(ann.user) }">{{ ann.user }}</strong>
               <div class="mt-2">
                 <v-chip
                   v-for="label in ann.labels"
                   :key="label"
                   small
                   class="ma-1 clickable-chip"
-                  color="primary"
+                  :color="getUserColor(ann.user)"
                   text-color="white"
                   @click="handleChipClick(label)"
                 >
@@ -68,10 +68,26 @@
         <!-- Painel de Discussão -->
         <v-card outlined>
           <h3 class="subtitle-1 pa-4 pb-0">Discussão - Label {{ currentLabelText }}</h3>
+          <!-- Filtro por anotador -->
+          <v-row class="px-4 pt-2" align="center">
+            <v-select
+              v-model="selectedAnnotator"
+              :items="annotatorOptions"
+              label="Filtrar por anotador"
+              dense
+              hide-details
+              outlined
+              style="max-width: 200px"
+            />
+          </v-row>
           <v-list dense two-line class="py-0">
-            <v-list-item v-for="c in comments" :key="c.id">
+            <v-list-item v-for="c in filteredComments" :key="c.id">
               <v-list-item-content>
-                <v-list-item-title>{{ c.username }}</v-list-item-title>
+                <v-list-item-title
+                  :style="{ color: getUserColor(c.username) }"
+                >
+                  {{ c.username }}
+                </v-list-item-title>
                 <v-list-item-subtitle>{{ c.text }}</v-list-item-subtitle>
               </v-list-item-content>
               <v-list-item-action-text class="grey--text text-caption">
@@ -131,7 +147,10 @@ export default {
         comments: [],
         newComment: '',
         dbErrorVisible: false,
-        dbErrorMessage: ''
+        dbErrorMessage: '',
+        userColorMap: {},
+        annotatorOptions: [],
+        selectedAnnotator: null
       }
     } catch (e) {
       error({ statusCode: 404, message: 'Exemplo não encontrado' })
@@ -142,6 +161,12 @@ export default {
     currentLabelText() {
       const opt = this.labelOptions.find((o) => o.id === this.selectedLabelId)
       return opt ? opt.text : ''
+    },
+    filteredComments() {
+      if (!this.selectedAnnotator || this.selectedAnnotator === 'Todos') {
+        return this.comments
+      }
+      return this.comments.filter((c) => c.username === this.selectedAnnotator)
     }
   },
   mounted() {
@@ -202,11 +227,20 @@ export default {
     async fetchComments() {
       try {
         if (this.selectedLabelId === null) { this.comments = []; return }
-        this.comments = await this.$repositories.comment.list(
+        const fetched = await this.$repositories.comment.list(
           this.projectId,
           Number(this.exampleId),
           this.selectedLabelId
         )
+        this.comments = fetched
+
+        // preparar opções de anotadores
+        const annotators = Array.from(new Set(this.comments.map((c) => c.username)))
+        this.annotatorOptions = ['Todos', ...annotators]
+        if (!this.annotatorOptions.includes(this.selectedAnnotator)) {
+          this.selectedAnnotator = 'Todos'
+        }
+
       } catch (err) {
         console.error('Failed to load comments', err)
         this.comments = []
@@ -231,6 +265,10 @@ export default {
           this.selectedLabelId
         )
         this.comments.push(newComment)
+        // Se o novo comentador não estiver nas opções, adicionar
+        if (!this.annotatorOptions.includes(newComment.username)) {
+          this.annotatorOptions.push(newComment.username)
+        }
         this.newComment = ''
       } catch (err) {
         console.error('Failed to send comment', err)
@@ -262,6 +300,28 @@ export default {
         this.selectedLabelId = opt.id
         this.onLabelChange()
       }
+    },
+    getUserColor(username) {
+      // Returns (and assigns if necessary) a unique color for the given username
+      if (!username) return 'grey'
+      if (!this.userColorMap[username]) {
+        const palette = [
+          '#e57373', // red lighten-2
+          '#64b5f6', // blue lighten-2
+          '#81c784', // green lighten-2
+          '#b39ddb', // deep-purple lighten-2
+          '#7986cb', // indigo lighten-2
+          '#4dd0e1', // cyan lighten-2
+          '#f06292', // pink lighten-2
+          '#ffd54f', // amber lighten-2
+          '#4db6ac', // teal lighten-2
+          '#a1887f', // brown lighten-2
+          '#90a4ae'  // blue-grey lighten-2
+        ]
+        const index = Object.keys(this.userColorMap).length % palette.length
+        this.userColorMap[username] = palette[index]
+      }
+      return this.userColorMap[username]
     }
   }
 }
