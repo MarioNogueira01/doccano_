@@ -89,7 +89,8 @@
 
     <!-- Lista de Grupos -->
     <v-expansion-panels v-if="hasGroups" v-model="expandedPanel">
-      <v-expansion-panel v-for="group in perspectiveGroups" :key="group.id">
+      <v-expansion-panel v-for="group in perspectiveGroups" 
+      :key="group.id" @change="preloadQuestionsResponses(group)">
         <v-expansion-panel-header>
           {{ group.name }}
           <v-spacer/>
@@ -165,6 +166,7 @@
                       color="primary"
                       class="mr-2"
                       @click="openEditQuestionDialog(group, q)"
+                      :disabled="questionResponsesCache[q.id]"
                     >
                       <v-icon small left>mdi-pencil</v-icon>
                       Edit
@@ -283,6 +285,8 @@
     </v-dialog>
      
     
+
+   
 
    
 
@@ -657,6 +661,7 @@ export default {
       hasError: false,
 
       sortConfig: {},
+      questionResponsesCache: {},
     }
   },
 
@@ -1027,6 +1032,8 @@ export default {
             console.log('Submitting answer:', answer)
             const response = await service.createPerspectiveAnswer(this.projectId, answer)
             console.log('Answer submission response:', response)
+            // Atualiza o cache para desabilitar o botão Edit imediatamente
+            this.$set(this.questionResponsesCache, answer.perspective, true)
           } catch (answerError) {
             console.error('Error submitting individual answer:', answerError)
             console.error('Error details:', {
@@ -1095,8 +1102,8 @@ export default {
       }
     },
 
-    openEditQuestionDialog(_group, question) {
-      this.currentGroup = _group
+    openEditQuestionDialog(group, question) {
+      this.currentGroup = group
       this.editingQuestion = { ...question }
       this.editFormErrors = {
         question: false,
@@ -1372,6 +1379,33 @@ export default {
       return this.sortConfig[group.id].direction === 'asc' 
         ? 'mdi-sort-ascending' 
         : 'mdi-sort-descending'
+    },
+
+    async questionHasResponses(question) {
+      // Usa cache para evitar múltiplas chamadas
+      if (this.questionResponsesCache[question.id] !== undefined) {
+        return this.questionResponsesCache[question.id];
+      }
+      try {
+        const service = usePerspectiveApplicationService();
+        const response = await service.listPerspectiveAnswersByQuestion(
+          this.projectId,
+          question.id
+        );
+        const hasResponses = response.results && response.results.length > 0;
+        this.$set(this.questionResponsesCache, question.id, hasResponses);
+        return hasResponses;
+      } catch (error) {
+        // Se der erro, por segurança, desabilita o botão
+        this.$set(this.questionResponsesCache, question.id, true);
+        return true;
+      }
+    },
+
+    async preloadQuestionsResponses(group) {
+      for (const q of group.questions) {
+        await this.questionHasResponses(q);
+      }
     },
   }
 }
