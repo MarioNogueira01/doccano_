@@ -89,7 +89,8 @@
 
     <!-- Lista de Grupos -->
     <v-expansion-panels v-if="hasGroups" v-model="expandedPanel">
-      <v-expansion-panel v-for="group in perspectiveGroups" :key="group.id">
+      <v-expansion-panel v-for="group in perspectiveGroups" 
+      :key="group.id" @change="preloadQuestionsResponses(group)">
         <v-expansion-panel-header>
           {{ group.name }}
           <v-spacer/>
@@ -165,6 +166,7 @@
                       color="primary"
                       class="mr-2"
                       @click="openEditQuestionDialog(group, q)"
+                      :disabled="questionResponsesCache[q.id]"
                     >
                       <v-icon small left>mdi-pencil</v-icon>
                       Edit
@@ -173,6 +175,7 @@
                       small
                       color="error"
                       @click="openDeleteQuestionDialog(group, q)"
+                      :disabled="questionResponsesCache[q.id]"
                     >
                       <v-icon small left>mdi-delete</v-icon>
                       Delete
@@ -240,7 +243,7 @@
               Add Option
             </v-btn>
             <div v-if="questionFormErrors.options" class="error--text caption mt-1">
-              At least two options are required
+              {{ addQuestionOptionsErrorMessage }}
             </div>
             <v-text-field
               v-for="(opt, i) in newQuestion.options"
@@ -283,6 +286,8 @@
     </v-dialog>
      
     
+
+   
 
    
 
@@ -407,7 +412,14 @@
                 class="flex-grow-1 mr-2"
                 required
               />
-              <v-btn fab x-small color="error" dark @click="editingQuestion.options.splice(i, 1)">
+              <v-btn
+                fab
+                x-small
+                color="error"
+                dark
+                :disabled="editingQuestion.options.length <= 2"
+                @click="editingQuestion.options.splice(i, 1)"
+              >
                 <v-icon small>mdi-delete</v-icon>
               </v-btn>
             </div>
@@ -590,6 +602,7 @@ export default {
         data_type: false,
         options: false
       },
+      addQuestionOptionsErrorMessage: 'At least two options are required',
 
       // Edit Question
       dialogEditQuestion: false,
@@ -657,6 +670,7 @@ export default {
       hasError: false,
 
       sortConfig: {},
+      questionResponsesCache: {},
     }
   },
 
@@ -867,11 +881,21 @@ export default {
 
     async validateAndSaveQuestion() {
       const q = this.newQuestion;
+      const cleanOptions = q.options.filter(o => String(o).trim());
+      const hasDuplicates = new Set(cleanOptions).size !== cleanOptions.length;
+      const notEnoughOptions = (q.data_type === 'string' || q.data_type === 'int') && cleanOptions.length < 2;
+
       this.questionFormErrors = {
         question: !q.question,
         data_type: !q.data_type,
-        options: (q.data_type === 'string' || q.data_type === 'int') && q.options.length < 2
+        options: notEnoughOptions || hasDuplicates
       };
+
+      if (notEnoughOptions) {
+        this.addQuestionOptionsErrorMessage = 'At least two options are required';
+      } else if (hasDuplicates) {
+        this.addQuestionOptionsErrorMessage = 'Duplicate options are not allowed.';
+      }
 
       if (Object.values(this.questionFormErrors).some(Boolean)) {
         return;
@@ -1027,6 +1051,8 @@ export default {
             console.log('Submitting answer:', answer)
             const response = await service.createPerspectiveAnswer(this.projectId, answer)
             console.log('Answer submission response:', response)
+            // Atualiza o cache para desabilitar o botão Edit imediatamente
+            this.$set(this.questionResponsesCache, answer.perspective, true)
           } catch (answerError) {
             console.error('Error submitting individual answer:', answerError)
             console.error('Error details:', {
@@ -1095,8 +1121,8 @@ export default {
       }
     },
 
-    openEditQuestionDialog(_group, question) {
-      this.currentGroup = _group
+    openEditQuestionDialog(group, question) {
+      this.currentGroup = group
       this.editingQuestion = { ...question }
       this.editFormErrors = {
         question: false,
@@ -1111,11 +1137,17 @@ export default {
       this.editFormErrors = {
         question: !q.question,
         data_type: !q.data_type,
-        options: (q.data_type === 'string' || q.data_type === 'int') && q.options.length < 2
+        options:
+          (q.data_type === 'string' || q.data_type === 'int') &&
+          q.options.filter((o) => o && String(o).trim()).length < 2
       }
 
       // reset message
-      this.optionsErrorMessage = 'Option is required'
+      if (this.editFormErrors.options) {
+        this.optionsErrorMessage = 'At least two non-empty options are required'
+      } else {
+        this.optionsErrorMessage = 'Option is required'
+      }
 
       const isNumeric = v => /^-?\d+(\.\d+)?$/.test(v.trim())
       if (q.data_type === 'int') {
@@ -1307,7 +1339,12 @@ export default {
       }
     },
 
-    openDeleteQuestionDialog(group, question) {
+    async openDeleteQuestionDialog(group, question) {
+      if (await this.questionHasResponses(question)) {
+        this.snackbarErrorMessage = 'Cannot delete a question that has responses.';
+        this.snackbarError = true;
+        return;
+      }
       this.deletingQuestion = question;
       this.deletingQuestionGroup = group;
       this.dialogDeleteQuestion = true;
@@ -1315,6 +1352,13 @@ export default {
 
     async deleteQuestion() {
       if (!this.deletingQuestion) return;
+
+      if (await this.questionHasResponses(this.deletingQuestion)) {
+        this.dialogDeleteQuestion = false;
+        this.snackbarErrorMessage = 'Cannot delete a question that has responses.';
+        this.snackbarError = true;
+        return;
+      }
 
       try {
         await this.$services.perspective.deletePerspective(
@@ -1372,6 +1416,33 @@ export default {
       return this.sortConfig[group.id].direction === 'asc' 
         ? 'mdi-sort-ascending' 
         : 'mdi-sort-descending'
+    },
+
+    async questionHasResponses(question) {
+      // Usa cache para evitar múltiplas chamadas
+      if (this.questionResponsesCache[question.id] !== undefined) {
+        return this.questionResponsesCache[question.id];
+      }
+      try {
+        const service = usePerspectiveApplicationService();
+        const response = await service.listPerspectiveAnswersByQuestion(
+          this.projectId,
+          question.id
+        );
+        const hasResponses = response.results && response.results.length > 0;
+        this.$set(this.questionResponsesCache, question.id, hasResponses);
+        return hasResponses;
+      } catch (error) {
+        // Se der erro, por segurança, desabilita o botão
+        this.$set(this.questionResponsesCache, question.id, true);
+        return true;
+      }
+    },
+
+    async preloadQuestionsResponses(group) {
+      for (const q of group.questions) {
+        await this.questionHasResponses(q);
+      }
     },
   }
 }
