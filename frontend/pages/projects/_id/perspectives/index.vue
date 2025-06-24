@@ -153,7 +153,8 @@
                     <v-btn
                       small
                       color="error"
-                      @click="openDeleteQuestionDialog(group, q)"
+                      :disabled="answeredQuestions[q.id]"
+                      @click="handleDeleteQuestionClick(group, q)"
                     >
                       <v-icon small left>mdi-delete</v-icon>
                       Delete
@@ -608,7 +609,8 @@ export default {
       examples: [],
       selectedExample: null,
       dialogSelectExample: false,
-      optionsErrorMessage: 'Option is required'
+      optionsErrorMessage: 'Option is required',
+      answeredQuestions: {}
     }
   },
 
@@ -634,6 +636,15 @@ export default {
     }
   },
 
+  watch: {
+    perspectiveGroups: {
+      handler() {
+        this.checkAnsweredQuestions();
+      },
+      immediate: true,
+      deep: true
+    }
+  },
   mounted() {
     this.fetchPerspectiveGroups()
   },
@@ -643,6 +654,7 @@ export default {
       try {
         const res = await this.$services.perspective.listPerspectiveGroups(this.projectId)
         this.perspectiveGroups = res.results || res.data?.results || []
+        await this.checkAnsweredQuestions();
       } catch (e) {
         console.error('Erro fetching groups', e)
         this.snackbarErrorMessage = 'Erro ao carregar grupos'
@@ -1149,6 +1161,12 @@ export default {
     },
 
     openDeleteQuestionDialog(group, question) {
+      // Defensive: check again before opening dialog
+      if (this.answeredQuestions[question.id]) {
+        this.snackbarErrorMessage = 'You cannot delete a question that already has answers.';
+        this.snackbarError = true;
+        return;
+      }
       this.deletingQuestion = question;
       this.deletingQuestionGroup = group;
       this.dialogDeleteQuestion = true;
@@ -1156,7 +1174,13 @@ export default {
 
     async deleteQuestion() {
       if (!this.deletingQuestion) return;
-
+      // Defensive: check again before actual delete
+      if (this.answeredQuestions[this.deletingQuestion.id]) {
+        this.snackbarErrorMessage = 'You cannot delete a question that already has answers.';
+        this.snackbarError = true;
+        this.dialogDeleteQuestion = false;
+        return;
+      }
       try {
         await this.$services.perspective.deletePerspective(
           this.projectId,
@@ -1166,11 +1190,39 @@ export default {
         await this.fetchPerspectiveGroups();
         this.snackbarMessage = 'Question deleted successfully';
         this.snackbar = true;
+        // Refresh answered status
+        await this.checkAnsweredQuestions();
       } catch (e) {
         console.error(e);
         this.snackbarErrorMessage = e.response?.data?.detail || 'Error deleting question';
         this.snackbarError = true;
       }
+    },
+
+    async checkAnsweredQuestions() {
+      // For each question in all groups, check if it has answers
+      const service = usePerspectiveApplicationService();
+      const answered = {};
+      for (const group of this.perspectiveGroups) {
+        for (const q of group.questions) {
+          try {
+            const res = await service.listPerspectiveAnswersByQuestion(this.projectId, q.id);
+            answered[q.id] = res.results && res.results.length > 0;
+          } catch (e) {
+            answered[q.id] = false;
+          }
+        }
+      }
+      this.answeredQuestions = answered;
+    },
+
+    handleDeleteQuestionClick(group, question) {
+      if (this.answeredQuestions[question.id]) {
+        this.snackbarErrorMessage = 'You cannot delete a question that already has answers.';
+        this.snackbarError = true;
+        return;
+      }
+      this.openDeleteQuestionDialog(group, question);
     },
   }
 }

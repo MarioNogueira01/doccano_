@@ -10,7 +10,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
-from celery import shared_task
+from celery import shared_task, current_task
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.shortcuts import get_object_or_404
@@ -26,7 +26,7 @@ from .pipeline.factories import (
 )
 from .pipeline.services import ExportApplicationService
 from data_export.models import ExportedExample
-from projects.models import Member, Project
+from projects.models import Member, Project, PerspectiveAnswer
 from examples.models import Example, ExampleState
 from labels.models import Category, Span, TextLabel, BoundingBox, Segmentation, Relation
 
@@ -179,7 +179,7 @@ def export_annotation_history(project_id, dataset_name=None, annotation_status='
                                 'question': pa.perspective.question,
                                 'answer': pa.answer,
                                 'answered_by': pa.created_by.username if pa.created_by else 'N/A',
-                                'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if pa.created_at else 'N/A'
+                                'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(pa, 'created_at') and pa.created_at else 'N/A'
                             })
 
                         row = {
@@ -218,7 +218,7 @@ def export_annotation_history(project_id, dataset_name=None, annotation_status='
                                     'question': pa.perspective.question,
                                     'answer': pa.answer,
                                     'answered_by': pa.created_by.username if pa.created_by else 'N/A',
-                                    'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if pa.created_at else 'N/A'
+                                    'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(pa, 'created_at') and pa.created_at else 'N/A'
                                 })
 
                             row = {
@@ -256,7 +256,13 @@ def export_annotation_history(project_id, dataset_name=None, annotation_status='
 @shared_task(autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True)
 def export_discrepancy_history(project_id, dataset_name=None):
     project = get_object_or_404(Project, pk=project_id)
-    dirpath = os.path.join(settings.MEDIA_ROOT, str(uuid.uuid4()))
+    try:
+        task_id = current_task.request.id
+        if not task_id:
+            task_id = str(uuid.uuid4())
+    except Exception:
+        task_id = str(uuid.uuid4())
+    dirpath = os.path.join(settings.MEDIA_ROOT, task_id)
     os.makedirs(dirpath, exist_ok=True)
     
     filepath = os.path.join(dirpath, "discrepancy_history.csv")
@@ -307,7 +313,7 @@ def export_discrepancy_history(project_id, dataset_name=None):
                         'question': pa.perspective.question,
                         'answer': pa.answer,
                         'answered_by': pa.created_by.username if pa.created_by else 'N/A',
-                        'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if pa.created_at else 'N/A'
+                        'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(pa, 'created_at') and pa.created_at else 'N/A'
                     })
 
                 current_dataset_name = "N/A"
@@ -334,42 +340,107 @@ def export_discrepancy_history(project_id, dataset_name=None):
                 logger.error(f"Error processing example {example.id}: {e}", exc_info=True)
     
     logger.info(f"Finished export_discrepancy_history. Filepath: {filepath}")
-    return filepath
+    if os.path.exists(filepath):
+        logger.info(f"✅ Successfully created discrepancy history file at: {filepath}")
+        return filepath
+    else:
+        logger.error(f"❌ Failed to create discrepancy history file at: {filepath}")
+        raise Exception("Failed to create discrepancy history file")
 
 
 @shared_task(autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True)
 def export_perspective_history(project_id, dataset_name=None):
     project = get_object_or_404(Project, pk=project_id)
-    dirpath = os.path.join(settings.MEDIA_ROOT, str(uuid.uuid4()))
-    os.makedirs(dirpath, exist_ok=True)
     
-    filepath = os.path.join(dirpath, "perspective_history.csv")
-    logger.info(f"Creating perspective history file at: {filepath}")
-
+    # Get the current task ID to use as directory name
     try:
-        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+        task_id = current_task.request.id
+        if not task_id:
+            # Fallback to UUID if task_id is not available
+            task_id = str(uuid.uuid4())
+            logger.warning(f"Task ID not available, using fallback UUID: {task_id}")
+    except Exception as e:
+        # Fallback to UUID if there's any error getting task_id
+        task_id = str(uuid.uuid4())
+        logger.warning(f"Error getting task ID, using fallback UUID: {task_id}. Error: {e}")
+    
+    # Create the output path using task_id as directory name
+    output_path = os.path.join(settings.MEDIA_ROOT, task_id, "perspective_history.csv")
+    
+    logger.info(f"Starting export_perspective_history for project {project_id}")
+    logger.info(f"Dataset name: {dataset_name}")
+    logger.info(f"Task ID: {task_id}")
+    logger.info(f"Output path: {output_path}")
+    logger.info(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
+    
+    try:
+        # Create the directory using task_id
+        dirpath = os.path.dirname(output_path)
+        os.makedirs(dirpath, exist_ok=True)
+        logger.info(f"Directory created successfully: {dirpath}")
+        
+        # Verify directory exists
+        if not os.path.exists(dirpath):
+            raise Exception(f"Failed to create directory: {dirpath}")
+        
+        logger.info(f"Creating perspective history file at: {output_path}")
+
+        # Create the CSV file
+        with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['question', 'answer', 'answered_by', 'answer_date', 'datasetName', 'example_text']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
             writer.writeheader()
-
-            logger.info(f"Starting export_perspective_history for project {project_id}")
-            logger.info(f"Selected dataset_name: {dataset_name}")
+            logger.info("CSV header written successfully")
 
             examples_queryset = Example.objects.filter(project=project).prefetch_related(
                 'perspective_answers',
                 'perspective_answers__perspective',
                 'perspective_answers__created_by'
             )
-            logger.debug(f"Initial examples_queryset count: {examples_queryset.count()}")
+            logger.info(f"Initial examples_queryset count: {examples_queryset.count()}")
 
             if dataset_name:
                 examples_queryset = examples_queryset.filter(
                     Q(filename__icontains=dataset_name) |
                     Q(upload_name__icontains=dataset_name)
                 )
-            logger.info(f"Total examples found: {examples_queryset.count()}")
+                logger.info(f"After dataset filter, examples count: {examples_queryset.count()}")
+            else:
+                logger.info("No dataset filter applied - using all examples")
 
+            # Check if there are any perspective answers in the project
+            total_perspective_answers = 0
+            for example in examples_queryset:
+                perspective_answers_count = example.perspective_answers.count()
+                total_perspective_answers += perspective_answers_count
+                if perspective_answers_count > 0:
+                    logger.info(f"Example {example.id} has {perspective_answers_count} perspective answers")
+            
+            logger.info(f"Total perspective answers found in project: {total_perspective_answers}")
+
+            # Direct database check for perspective answers
+            from projects.models import PerspectiveAnswer
+            direct_perspective_answers = PerspectiveAnswer.objects.filter(project=project)
+            logger.info(f"Direct PerspectiveAnswer query count: {direct_perspective_answers.count()}")
+            
+            if direct_perspective_answers.exists():
+                for pa in direct_perspective_answers[:5]:  # Show first 5 for debug
+                    logger.info(f"Direct PA: ID={pa.id}, Example={pa.example_id}, Perspective={pa.perspective_id}, Answer={pa.answer}")
+            
+            # Check if there are any examples with perspective_answers relationship
+            examples_with_perspectives = examples_queryset.filter(perspective_answers__isnull=False).distinct()
+            logger.info(f"Examples with perspective_answers relationship: {examples_with_perspectives.count()}")
+            
+            if examples_with_perspectives.exists():
+                for example in examples_with_perspectives[:3]:  # Show first 3 for debug
+                    logger.info(f"Example {example.id} has perspective_answers relationship")
+                    pas = example.perspective_answers.all()
+                    logger.info(f"  - Direct count: {pas.count()}")
+                    for pa in pas:
+                        logger.info(f"  - PA: {pa.id}, Answer: {pa.answer}, Perspective: {pa.perspective.question}")
+
+            rows_written = 0
             for example in examples_queryset:
                 try:
                     current_dataset_name = "N/A"
@@ -380,35 +451,52 @@ def export_perspective_history(project_id, dataset_name=None):
 
                     # Get perspective answers for this example
                     perspective_answers = example.perspective_answers.all()
+                    logger.debug(f"Example {example.id} has {perspective_answers.count()} perspective answers")
+                    
                     for pa in perspective_answers:
                         row = {
                             'question': pa.perspective.question,
                             'answer': pa.answer,
                             'answered_by': pa.created_by.username if pa.created_by else 'N/A',
-                            'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if pa.created_at else 'N/A',
+                            'answer_date': pa.created_at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(pa, 'created_at') and pa.created_at else 'N/A',
                             'datasetName': current_dataset_name,
                             'example_text': example.text if example.text else ""
                         }
-                        logger.info(f"Writing perspective answer row: {row}")
+                        logger.info(f"Writing perspective answer row for example {example.id}: {row}")
                         writer.writerow(row)
+                        rows_written += 1
 
                 except Exception as e:
                     logger.error(f"Error processing example {example.id}: {e}", exc_info=True)
                     continue
 
         # Verify the file was created and has content
-        if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-            logger.info(f"Successfully created perspective history file at: {filepath}")
-            return filepath
+        logger.info(f"CSV file writing completed. Checking file status...")
+        
+        if os.path.exists(output_path):
+            file_size = os.path.getsize(output_path)
+            logger.info(f"File exists: {output_path}, size: {file_size} bytes, rows written: {rows_written}")
+            
+            if file_size > 0:
+                logger.info(f"✅ Successfully created perspective history file at: {output_path}")
+                logger.info(f"File contains {rows_written} rows of data")
+                return output_path
+            else:
+                logger.error(f"❌ File exists but is empty: {output_path}")
+                raise Exception("Generated file is empty")
         else:
-            logger.error(f"Failed to create perspective history file at: {filepath}")
+            logger.error(f"❌ File was not created: {output_path}")
             raise Exception("Failed to create perspective history file")
 
     except Exception as e:
-        logger.error(f"Error in export_perspective_history: {e}", exc_info=True)
+        logger.error(f"❌ Error in export_perspective_history: {e}", exc_info=True)
         # Clean up the directory if there was an error
         if os.path.exists(dirpath):
-            shutil.rmtree(dirpath)
+            try:
+                shutil.rmtree(dirpath)
+                logger.info(f"Cleaned up directory after error: {dirpath}")
+            except Exception as cleanup_error:
+                logger.error(f"Error cleaning up directory {dirpath}: {cleanup_error}")
         raise
 
 

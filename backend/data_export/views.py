@@ -268,6 +268,10 @@ class DiscrepancyHistoryTableDataAPI(APIView):
                 filepath = task.result
                 data = []
                 try:
+                    # Verifica se o ficheiro existe antes de abrir
+                    if not os.path.exists(filepath):
+                        logger.warning(f"CSV file not found (yet): {filepath}")
+                        return Response({"status": "Not ready"}, status=202)
                     with open(filepath, 'r', encoding='utf-8') as csvfile:
                         reader = csv.DictReader(csvfile)
                         for row in reader:
@@ -334,47 +338,78 @@ class PerspectiveHistoryTableDataAPI(APIView):
 
     def get(self, request, *args, **kwargs):
         task_id = request.GET["taskId"]
+        logger.info(f"PerspectiveHistoryTableDataAPI: Processing task_id {task_id}")
+        
         task = AsyncResult(task_id)
         ready = task.ready()
+        logger.info(f"Task {task_id} ready status: {ready}")
         
         if ready:
             if task.successful():
                 filepath = task.result
+                logger.info(f"Task successful, filepath: {filepath}")
                 data = []
+                
                 try:
                     # Check if file exists before trying to read it
                     if not os.path.exists(filepath):
-                        logger.error(f"CSV file not found: {filepath}")
+                        logger.error(f"❌ CSV file not found: {filepath}")
                         return Response(
-                            {"status": "Error", "message": "Report file not found."},
+                            {"success": False, "error": "Report file not found. Please try generating the report again."},
+                            status=status.HTTP_404_NOT_FOUND
+                        )
+
+                    # Verify file is not empty
+                    file_size = os.path.getsize(filepath)
+                    logger.info(f"File size: {file_size} bytes")
+                    
+                    if file_size == 0:
+                        logger.error(f"❌ CSV file is empty: {filepath}")
+                        return Response(
+                            {"success": False, "error": "Report file is empty. No data found."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR
                         )
 
+                    # Read the CSV file
+                    logger.info(f"Reading CSV file: {filepath}")
                     with open(filepath, 'r', encoding='utf-8') as csvfile:
                         reader = csv.DictReader(csvfile)
                         for row in reader:
                             data.append(row)
                     
+                    logger.info(f"Successfully read {len(data)} rows from CSV")
+                    
                     # Only remove the file after successfully reading it
                     try:
                         os.remove(filepath)
+                        logger.info(f"Removed temporary file: {filepath}")
+                        
+                        # Also try to remove the directory if it's empty
+                        dirpath = os.path.dirname(filepath)
+                        if os.path.exists(dirpath) and not os.listdir(dirpath):
+                            os.rmdir(dirpath)
+                            logger.info(f"Removed empty directory: {dirpath}")
                     except Exception as e:
                         logger.warning(f"Could not remove temporary file {filepath}: {e}")
                     
-                    return Response(data, status=status.HTTP_200_OK)
+                    logger.info(f"✅ Successfully processed perspective history data, {len(data)} rows")
+                    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+                    
                 except Exception as e:
-                    logger.error(f"Error processing CSV file {filepath}: {e}", exc_info=True)
+                    logger.error(f"❌ Error processing CSV file {filepath}: {e}", exc_info=True)
                     return Response(
-                        {"status": "Error", "message": "Failed to process report file."},
+                        {"success": False, "error": f"Failed to process report file: {str(e)}"},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
             else:
-                logger.error(f"Celery task {task_id} failed: {task.result}", exc_info=True)
+                logger.error(f"❌ Celery task {task_id} failed: {task.result}", exc_info=True)
                 return Response(
-                    {"status": "Error", "message": str(task.result)},
+                    {"success": False, "error": f"Task failed: {str(task.result)}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-        return Response({"status": "Not ready"})
+        
+        logger.info(f"Task {task_id} not ready yet")
+        return Response({"success": False, "status": "Not ready"})
 
 
 class AnnotationHistoryPDFAPI(APIView):
