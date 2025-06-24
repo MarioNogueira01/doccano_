@@ -120,9 +120,10 @@
                               </div>
                             </div>
 
-                            <!-- String/Int Options -->
+                            <!-- String Options -->
                             <v-select
-                              v-if="question.data_type === 'string' || question.data_type === 'int'"
+                              v-if="question.data_type === 'string' && 
+                              question.options && question.options.length > 0"
                               v-model="selectedAnswers[question.id]"
                               :items="question.options"
                               :label="'Selecionar ' + question.question"
@@ -153,6 +154,20 @@
                                 </span>
                               </template>
                             </v-select>
+
+                            <!-- Integer Options (free numeric input) -->
+                            <v-text-field
+                              v-else-if="question.data_type === 'int'"
+                              v-model="selectedAnswers[question.id]"
+                              :label="'Filtrar por ' + question.question"
+                              type="number"
+                              clearable
+                              outlined
+                              dense
+                              class="mt-1"
+                              placeholder="Enter a number"
+                              @input="applyFilters"
+                            />
 
                             <!-- Boolean Options -->
                             <v-radio-group

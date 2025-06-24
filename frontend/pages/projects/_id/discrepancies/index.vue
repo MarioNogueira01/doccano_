@@ -118,9 +118,10 @@
                       <div class="text-subtitle-2 font-weight-medium">{{ question.question }}</div>
                     </div>
                     
-                    <!-- String/Int Options -->
+                    <!-- String Options -->
                     <v-select
-                      v-if="question.data_type === 'string' || question.data_type === 'int'"
+                      v-if="question.data_type === 'string' && 
+                      question.options && question.options.length > 0"
                       v-model="selectedAnswers[question.id]"
                       :items="question.options"
                       :label="'Select ' + question.question"
@@ -151,6 +152,20 @@
                         </span>
                       </template>
                     </v-select>
+
+                    <!-- Integer Options (free numeric input) -->
+                    <v-text-field
+                      v-else-if="question.data_type === 'int'"
+                      v-model="selectedAnswers[question.id]"
+                      :label="'Filter by ' + question.question"
+                      type="number"
+                      clearable
+                      outlined
+                      dense
+                      class="mt-1"
+                      placeholder="Enter a number"
+                      @input="applyFilters"
+                    />
 
                     <!-- Boolean Options -->
                     <v-radio-group
@@ -359,11 +374,17 @@ export default {
       let filtered = [...this.discrepancies];
 
       const hasPerspectiveFilters = Object.keys(this.selectedAnswers).length > 0;
+      console.log('Has perspective filters:', hasPerspectiveFilters);
+      console.log('Selected answers:', this.selectedAnswers);
 
       if (hasPerspectiveFilters) {
         filtered = filtered.filter(discrepancy => {
           const perspectiveAnswers = discrepancy.perspective_answers || {};
           const annotators = discrepancy.annotators || [];
+          
+          console.log('Processing discrepancy:', discrepancy.text);
+          console.log('Perspective answers:', perspectiveAnswers);
+          console.log('Annotators:', annotators);
 
           for (const [selectedQuestionId, selectedValue] of Object.entries(this.selectedAnswers)) {
             if (
@@ -372,18 +393,41 @@ export default {
               (Array.isArray(selectedValue) && selectedValue.length === 0)
             ) continue;
 
+            console.log(`Checking question ${selectedQuestionId} with value:`, selectedValue);
+            console.log(`Selected question ID type:`, typeof selectedQuestionId);
             let matchFound = false;
 
             for (const group of Object.values(perspectiveAnswers)) {
               for (const [questionId, answersByAnnotator] of Object.entries(group)) {
-                if (questionId !== selectedQuestionId) continue;
+                console.log(`Comparing question ID: "${selectedQuestionId}" (${typeof selectedQuestionId}) with "${questionId}" (${typeof questionId})`);
+                if (questionId !== selectedQuestionId && 
+                questionId !== selectedQuestionId.toString()) continue;
+
+                console.log(`Found matching question ${questionId} in group:`, answersByAnnotator);
 
                 for (const annotatorId of annotators) {
                   const rawAnswer = answersByAnnotator[annotatorId];
 
                   if (rawAnswer !== undefined) {
+                    console.log(`Annotator ${annotatorId} answered:`, rawAnswer);
+                    
                     if (Array.isArray(selectedValue)) {
                       if (selectedValue.includes(rawAnswer)) {
+                        console.log(`Match found for array value: ${rawAnswer} in ${selectedValue}`);
+                        matchFound = true;
+                        break;
+                      }
+                    } else if (!isNaN(Number(selectedValue))) {
+                      // Para questões do tipo int (valores numéricos)
+                      const numericAnswer = Number(rawAnswer);
+                      const numericSelected = Number(selectedValue);
+                      if (
+                        String(selectedValue).trim() !== '' &&
+                        !isNaN(numericAnswer) &&
+                        !isNaN(numericSelected) &&
+                        numericAnswer === numericSelected
+                      ) {
+                        console.log(`Match found for numeric value: ${numericAnswer} === ${numericSelected}`);
                         matchFound = true;
                         break;
                       }
@@ -400,6 +444,7 @@ export default {
                       if (answerBool === null) continue;
 
                       if (selectedValue === answerBool) {
+                        console.log(`Match found for boolean value: ${answerBool} === ${selectedValue}`);
                         matchFound = true;
                         break;
                       }
@@ -411,9 +456,13 @@ export default {
               if (matchFound) break;
             }
 
-            if (!matchFound) return false;
+            if (!matchFound) {
+              console.log(`No match found for question ${selectedQuestionId}, filtering out discrepancy`);
+              return false;
+            }
           }
 
+          console.log(`Discrepancy ${discrepancy.text} passed all filters`);
           return true;
         });
       }
@@ -426,9 +475,9 @@ export default {
         );
       }
 
+      console.log('Final filtered results:', filtered.length);
       return filtered;
-    }
-,
+    },
     hasActiveFilters() {
       return Object.values(this.selectedAnswers).some(values => {
         if (Array.isArray(values)) {
@@ -459,7 +508,6 @@ export default {
   async created() {
     this.loadSelectedAnswers();
     await this.fetchDiscrepancies();
-    await this.fetchDiscrepancies();
     await this.fetchPerspectiveGroups();
   },
 
@@ -482,6 +530,12 @@ export default {
         console.log('Discrepancies from DB:', dbResponse);
         console.log('Discrepancies fetched:', response);
         this.discrepancies = response.discrepancies || [];
+        
+        // Log da estrutura de uma discrepância para debug
+        if (this.discrepancies.length > 0) {
+          console.log('Sample discrepancy structure:', this.discrepancies[0]);
+        }
+        
         // Armazena os dados da BD para uso posterior
         this.dbDiscrepancies = dbResponse || [];
         
@@ -607,6 +661,8 @@ export default {
 
     applyFilters() {
       console.log('Applying filters...');
+      console.log('Selected answers:', this.selectedAnswers);
+      console.log('Discrepancies:', this.discrepancies);
     },
 
     updateSort() {
