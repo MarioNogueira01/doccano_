@@ -33,8 +33,18 @@ class UserSerializer(serializers.ModelSerializer):
 class CustomRegisterSerializer(DefaultRegisterSerializer):
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
+    is_superuser = serializers.BooleanField(required=False, default=False)
 
-    def custom_signup(self, request, user):
+    def save(self, request):
+        user = super().save(request)
         user.first_name = self.validated_data.get("first_name", "")
         user.last_name = self.validated_data.get("last_name", "")
+        
+        # Only admins can create superusers
+        if request.user.is_superuser:
+            user.is_superuser = self.validated_data.get("is_superuser", False)
+            if user.is_superuser:
+                user.is_staff = True  # Superusers should also be staff
+        
         user.save()
+        return user
