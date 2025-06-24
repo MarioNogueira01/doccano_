@@ -59,10 +59,10 @@ export class APIUserRepository {
   
   
 
-  async findById(id: string): Promise<UserItem> {
-    const url = `/users/${id}`
+  async findById(id: string): Promise<any> {
+    const url = `/users/${id}/`
     const response = await this.request.get(url)
-    return toModel(response.data)
+    return response.data
   }
 
   async getProfile(): Promise<UserItem> {

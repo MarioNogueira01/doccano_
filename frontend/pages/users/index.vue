@@ -11,14 +11,6 @@
         </v-btn>
         <v-btn
           class="text-capitalize ms-2"
-          color="primary"
-          :disabled="!canEdit"
-          @click.stop="edit"
-        >
-          Edit
-        </v-btn>
-        <v-btn
-          class="text-capitalize ms-2"
           :disabled="!canDelete"
           outlined
           @click.stop="onDeleteClick"
@@ -273,8 +265,8 @@ export default Vue.extend({
     },
 
     edit() {
-      if (this.canEdit) {
-        this.dialogEdit = true
+      if (this.canEdit && this.selectedUser) {
+        this.$router.push(`/users/${this.selectedUser.id}/edit`)
       }
     }
   }
