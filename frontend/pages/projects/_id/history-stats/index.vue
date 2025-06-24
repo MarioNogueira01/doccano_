@@ -167,7 +167,7 @@
         >
           <v-card outlined>
             <v-card-title class="subtitle-2">
-              Versão {{ stat.version }}
+              Versão {{ stat.version }} - {{ stat.annotator || '??' }}
             </v-card-title>
             <v-card-text style="position:relative;height:400px;">
               <bar-chart
@@ -413,12 +413,12 @@ export default {
     exportCSV () {
       const delimiter = ';'
       const rows = [
-        ['Versão', 'Rótulo', 'Percentagem']
+        ['Versão', 'Anotador', 'Rótulo', 'Percentagem']
       ]
 
       this.displayedStats.forEach(s => {
         s.labels.forEach((label, idx) => {
-          rows.push([s.version, label, `${s.votes[idx]}%`])
+          rows.push([s.version, s.annotator || '', label, `${s.votes[idx]}%`])
         })
       })
 
