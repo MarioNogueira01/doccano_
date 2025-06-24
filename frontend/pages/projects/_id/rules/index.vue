@@ -10,7 +10,7 @@
     </v-card-title>
 
     <v-card-title>
-      Regras
+      Rules
     </v-card-title>
     <RulesTable 
       :items="rules"
@@ -42,13 +42,13 @@
     <!-- Overlay para criar uma pergunta -->
     <v-dialog v-model="dialogCreateQuestion" max-width="500px">
       <v-card>
-        <v-card-title class="headline">Criar Pergunta</v-card-title>
+        <v-card-title class="headline">Create Question</v-card-title>
         <v-card-text class="pa-4">
           <v-textarea
             v-model="newQuestion"
-            label="Digite a pergunta"
+            label="Type your question"
             :error="showErrors && !newQuestion"
-            :error-messages="showErrors && !newQuestion ? ['* Campo obrigatório'] : []"
+            :error-messages="showErrors && !newQuestion ? ['* Required field'] : []"
             required
           />
         </v-card-text>
@@ -101,13 +101,13 @@
     <!-- Overlay para aviso de regras -->
     <v-dialog v-model="dialogNoRules" max-width="400px">
       <v-card>
-        <v-card-title class="headline">Nenhuma Regra Encontrada</v-card-title>
+        <v-card-title class="headline">No Rules Found</v-card-title>
         <v-card-text>
-          <p>Você precisa adicionar pelo menos uma regra para submeter a votação.</p>
+          <p>You need to add at least one rule to submit to voting.</p>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="primary" text @click="dialogNoRules = false">Fechar</v-btn>
+          <v-btn color="primary" text @click="dialogNoRules = false">Close</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -312,6 +312,14 @@ export default {
       if (!this.rules || this.rules.length === 0) {
         this.dialogCalendar = false;
         this.dialogNoRules = true; // Abre o overlay de aviso
+        return;
+      }
+      // Nova validação: não permitir datas/horas no passado ou igual ao momento atual
+      const selectedDateTime = new Date(`${this.selectedDate}T${this.selectedTime}:00`);
+      const now = new Date();
+      if (selectedDateTime.getTime() <= now.getTime()) {
+        this.snackbarErrorMessage = 'The end date/time must be strictly in the future.';
+        this.snackbarError = true;
         return;
       }
       this.createVotingSession();

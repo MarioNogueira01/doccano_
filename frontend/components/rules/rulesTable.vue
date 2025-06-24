@@ -7,26 +7,36 @@
       <table class="w-full text-sm text-left text-gray-500">
         <thead class="text-xs text-gray-700 uppercase bg-gray-50">
           <tr>
-            <th class="px-4 py-3 border-b">Regra</th>
-            <th class="px-4 py-3 border-b"></th>
+            <th class="px-4 py-3 border-b">Rule</th>
+            <th class="px-4 py-3 border-b">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr 
             v-for="(item, index) in filteredItem" 
             :key="index" 
-            class="border-b"
+            class="border-b bg-yellow-100"
           >
             <td class="px-4 py-3 font-medium text-grey-900">
               {{ item.regra.length > 80 ? item.regra.slice(0, 80) + '...' : item.regra }}
             </td>
             <td class="px-4 py-3">
+              <span
+                v-if="item.color"
+                class="color-circle"
+                :style="{
+                  backgroundColor: item.color,
+                  borderColor: '#0062B1'
+                }"
+              ></span>
               <button 
-                class="bg-blue-500 text-white px-3 py-1 rounded"
+                class="bg-red-600 text-white w-10 h-10 flex items-center justify-center 
+                rounded-full font-bold shadow-md transition duration-150 hover:bg-red-700"
                 @click="openAcaoOverlay(item)"
               >
-                Ações
+                
               </button>
+              <span class="ml-2 font-semibold text-gray-700">Actions</span>
             </td>
           </tr>
         </tbody>
@@ -36,13 +46,13 @@
     <!-- Overlay de ações -->
     <v-dialog v-model="showAcao" max-width="600px">
       <v-card>
-        <v-card-title class="headline">Ações para:</v-card-title>
+        <v-card-title class="headline">Actions for:</v-card-title>
         <v-card-text>
           <div class="mb-4">
-            <strong>Regra:</strong>
+            <strong>Rule:</strong>
             <div v-if="!isEditing">{{ selectedItem?.regra }}</div>
             <div v-else>
-              <v-textarea v-model="editedRegra" label="Editar regra" required />
+              <v-textarea v-model="editedRegra" label="Edit rule" required />
             </div>
           </div>
         </v-card-text>
@@ -136,3 +146,15 @@ const confirmEdit = () => {
   showAcao.value = false;
 };
 </script>
+
+<style scoped>
+.color-circle {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid #0062B1;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+</style>
