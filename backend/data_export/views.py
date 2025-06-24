@@ -17,7 +17,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from datetime import datetime
 
-from .celery_tasks import export_dataset, export_annotation_history, export_discrepancy_history, export_perspective_history, export_annotation_history_pdf
+from .celery_tasks import export_dataset, export_annotation_history, export_discrepancy_history, export_perspective_history, export_annotation_history_pdf, export_perspective_history_pdf
 from .pipeline.catalog import Options
 from projects.models import Project
 from projects.permissions import IsProjectAdmin
@@ -447,6 +447,82 @@ class AnnotationHistoryPDFAPI(APIView):
                 
         except Exception as e:
             logger.error(f"Error in AnnotationHistoryPDFAPI: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PerspectiveHistoryPDFAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, project_id):
+        try:
+            dataset_name = request.query_params.get('dataset_name')
+            annotation_status = request.query_params.get('annotation_status', 'All')
+            
+            # Trigger the PDF export task
+            task = export_perspective_history_pdf.delay(project_id, dataset_name, annotation_status)
+            
+            return Response({
+                'task_id': task.id,
+                'status': 'processing'
+            })
+        except Exception as e:
+            logger.error(f"Error in PerspectiveHistoryPDFAPI: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def post(self, request, project_id):
+        try:
+            task_id = request.data.get('task_id')
+            if not task_id:
+                return Response(
+                    {'error': 'Task ID is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check task status
+            task = export_perspective_history_pdf.AsyncResult(task_id)
+            
+            if task.ready():
+                if task.successful():
+                    filepath = task.result
+                    if os.path.exists(filepath):
+                        response = FileResponse(
+                            open(filepath, 'rb'),
+                            content_type='application/pdf'
+                        )
+                        response['Content-Disposition'] = f'attachment; filename="perspective_history.pdf"'
+                        
+                        # Delete the file after sending
+                        try:
+                            os.remove(filepath)
+                            os.rmdir(os.path.dirname(filepath))
+                        except Exception as e:
+                            logger.error(f"Error cleaning up PDF file: {e}")
+                            
+                        return response
+                    else:
+                        return Response(
+                            {'error': 'PDF file not found'},
+                            status=status.HTTP_404_NOT_FOUND
+                        )
+                else:
+                    return Response(
+                        {'error': str(task.result)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response({
+                    'status': 'processing',
+                    'task_id': task_id
+                })
+                
+        except Exception as e:
+            logger.error(f"Error in PerspectiveHistoryPDFAPI: {e}", exc_info=True)
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
