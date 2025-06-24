@@ -78,9 +78,6 @@
       >
         {{ $t('dataset.annotate') }}
       </v-btn>
-      <v-btn small color="success text-capitalize" @click="$emit('vote', item)">
-        Votações
-      </v-btn>
     </template>
   </v-data-table>
 </template>

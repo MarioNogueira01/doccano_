@@ -54,15 +54,23 @@ class LabelVoteHistoryView(APIView):
 
                     has_any_filter = True
 
+                    # Build answer filter for both example-level and project-level answers
                     if isinstance(value, list):
-                        answer_q = Q(example__perspective_answers__answer__in=[str(v) for v in value])
+                        answers_list = [str(v) for v in value]
+                        example_answer_q = Q(example__perspective_answers__answer__in=answers_list)
+                        project_answer_q = Q(example__project__perspective_answers__answer__in=answers_list)
                     elif isinstance(value, bool):
-                        answer_q = Q(example__perspective_answers__answer="Yes" if value else "No")
+                        answer_str = "Yes" if value else "No"
+                        example_answer_q = Q(example__perspective_answers__answer=answer_str)
+                        project_answer_q = Q(example__project__perspective_answers__answer=answer_str)
                     else:
-                        answer_q = Q(example__perspective_answers__answer=str(value))
+                        answer_str = str(value)
+                        example_answer_q = Q(example__perspective_answers__answer=answer_str)
+                        project_answer_q = Q(example__project__perspective_answers__answer=answer_str)
 
                     current_q = (
-                        Q(example__perspective_answers__perspective__id=question_id) & answer_q
+                        (Q(example__perspective_answers__perspective__id=question_id) & example_answer_q) |
+                        (Q(example__project__perspective_answers__perspective__id=question_id) & project_answer_q)
                     )
                     combined_q_filters &= current_q
 

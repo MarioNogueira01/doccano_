@@ -63,9 +63,8 @@
                   <h3>{{ group.name }}</h3>
                   <v-row v-for="question in group.questions" :key="question.id">
                     <v-col cols="12">
-                      <!-- String / Integer with predefined options -->
                       <v-select
-                        v-if="hasPredefinedOptions(question)"
+                        v-if="question.data_type === 'string' && question.options.length > 0"
                         v-model="selectedPerspectiveAnswers[question.id]"
                         :items="question.options"
                         :label="question.question"
@@ -74,44 +73,18 @@
                         deletable-chips
                         clearable
                       />
-
-                      <!-- Boolean (store as real boolean) -->
                       <v-select
                         v-else-if="question.data_type === 'boolean'"
                         v-model="selectedPerspectiveAnswers[question.id]"
-                        :items="booleanOptions"
-                        item-text="text"
-                        item-value="value"
+                        :items="['Yes', 'No']"
                         :label="question.question"
                         clearable
                       />
-
-                      <!-- Dynamic options fetched from existing answers -->
-                      <v-select
-                        v-else-if="hasDynamicOptions(question)"
-                        v-model="selectedPerspectiveAnswers[question.id]"
-                        :items="getDynamicOptions(question)"
-                        :label="question.question"
-                        multiple
-                        chips
-                        deletable-chips
-                        clearable
-                      />
-
-                      <!-- Integer without predefined options: free numeric input -->
-                      <v-text-field
-                        v-else-if="question.data_type === 'int'"
-                        v-model.number="selectedPerspectiveAnswers[question.id]"
-                        :label="question.question"
-                        type="number"
-                        clearable
-                      />
-
-                      <!-- Fallback for any other data types -->
                       <v-text-field
                         v-else
                         v-model="selectedPerspectiveAnswers[question.id]"
                         :label="question.question"
+                        type="number"
                         clearable
                       />
                     </v-col>
@@ -236,15 +209,9 @@ export default {
       perspectiveFilterDialog: false,
       perspectiveGroups: [],
       selectedPerspectiveAnswers: {},
-      dynamicOptions: {},
       // Snackbar erro BD
       dbErrorVisible: false,
-      dbErrorMessage: '',
-      // Reusable boolean options for selects (prevents long template lines)
-      booleanOptions: [
-        { text: 'Yes', value: true },
-        { text: 'No', value: false }
-      ]
+      dbErrorMessage: ''
     }
   },
   computed: {
@@ -283,9 +250,6 @@ export default {
     try {
       const response = await this.$services.perspective.listPerspectiveGroups(this.projectId)
       this.perspectiveGroups = response.results || response.data?.results || []
-
-      // After groups loaded fetch dynamic answer options for open questions
-      await this.populateDynamicOptions()
     } catch (e) {
       console.error('Failed to load perspective groups', e)
       this.handleDbError(e, 'Erro ao carregar grupos de perspectiva.')
@@ -353,34 +317,6 @@ export default {
       this.selectedPerspectiveAnswers = {}
       this.perspectiveFilterDialog = false
       this.applyFilters()
-    },
-    hasPredefinedOptions (q) {
-      return (q.data_type === 'string' || q.data_type === 'int') && q.options && q.options.length > 0
-    },
-    /* ------------------------- DYNAMIC OPTIONS ------------------------- */
-    async populateDynamicOptions () {
-      const service = this.$services.perspective
-      for (const group of this.perspectiveGroups) {
-        for (const q of group.questions) {
-          if ((q.data_type === 'string' || q.data_type === 'int') && (!q.options || q.options.length === 0)) {
-            try {
-              const resp = await service.listPerspectiveAnswersByQuestion(this.projectId, q.id)
-              const values = [...new Set((resp.results || resp.data || resp).map(a => a.answer))]
-              if (values.length > 0) {
-                this.$set(this.dynamicOptions, q.id, values)
-              }
-            } catch (err) {
-              console.error('Erro ao buscar opções dinâmicas para questão', q.id, err)
-            }
-          }
-        }
-      }
-    },
-    getDynamicOptions (q) {
-      return this.dynamicOptions[q.id] || []
-    },
-    hasDynamicOptions (q) {
-      return this.getDynamicOptions(q).length > 0
     },
     /* -------------------------    EXPORT  CSV / PDF   ------------------------- */
     exportCSV () {
@@ -549,3 +485,321 @@ export default {
 
 <style scoped>
 </style> 
+
+
+
+import ApiService from '@/services/api.service'
+
+export interface LabelStat { version: number; labels: string[]; votes: number[] }
+
+export class ApiStatsRepository {
+  async labelVotes(projectId: string|number, params: any = {}): Promise<LabelStat[]> {
+    const { data } = await ApiService.get(`/projects/${projectId}/stats/label-votes`, { params })
+    return data
+  }
+
+  async datasets(projectId: string|number) {
+    const { data } = await ApiService.get(`/projects/${projectId}/datasets`)
+    return data
+  }
+} 
+
+
+
+
+
+
+
+import { ApiPerspectiveRepository } from '@/repositories/perspective/apiPerspectiveRepository'
+
+// Class-based implementation (for the Vue 2 app services system)
+export class PerspectiveApplicationService {
+  constructor(private readonly repository: ApiPerspectiveRepository) {}
+
+  async createPerspective(projectId: string | number, data: any) {
+    return await this.repository.create(projectId, data)
+  }
+
+  async listPerspective(projectId: string | number) {
+    return await this.repository.list(projectId)
+  }
+
+  async createPerspectiveGroup(projectId: string | number, data: any) {
+    return await this.repository.createGroup(projectId, data)
+  }
+
+  async listPerspectiveGroups(projectId: string | number) {
+    return await this.repository.listGroups(projectId)
+  }
+
+  async createPerspectiveAnswer(projectId: string | number, data: any) {
+    return await this.repository.createAnswer(projectId, data)
+  }
+
+  async listPerspectiveAnswers(projectId: string | number) {
+    return await this.repository.listAnswers(projectId)
+  }
+
+  async deletePerspective(projectId: string | number, questionId: string | number) {
+    return await this.repository.delete(projectId, questionId)
+  }
+
+  async updatePerspective(projectId: string | number, questionId: string | number, data: any) {
+    return await this.repository.update(projectId, questionId, data)
+  }
+
+  async listPerspectiveAnswersByQuestion(projectId: string | number, questionId: string | number) {
+    return await this.repository.listAnswersByQuestion(projectId, questionId)
+  }
+}
+
+// Function-based implementation (for Vue 3 composition API)
+export function usePerspectiveApplicationService() {
+  const repository = new ApiPerspectiveRepository()
+  
+  return {
+    createPerspective: (projectId: string | number, data: any) => 
+      repository.create(projectId, data),
+    
+    listPerspective: (projectId: string | number) => 
+      repository.list(projectId),
+    
+    createPerspectiveGroup: (projectId: string | number, data: any) => 
+      repository.createGroup(projectId, data),
+    
+    listPerspectiveGroups: (projectId: string | number) => 
+      repository.listGroups(projectId),
+
+    createPerspectiveAnswer: (projectId: string | number, data: any) => 
+      repository.createAnswer(projectId, data),
+    
+    listPerspectiveAnswers: (projectId: string | number) => 
+      repository.listAnswers(projectId),
+
+    deletePerspective: (projectId: string | number, questionId: string | number) => 
+      repository.delete(projectId, questionId),
+
+    updatePerspective: (projectId: string | number, questionId: string | number, data: any) => 
+      repository.update(projectId, questionId, data),
+
+    listPerspectiveAnswersByQuestion: (projectId: string | number, questionId: string | number) => 
+      repository.listAnswersByQuestion(projectId, questionId),
+
+    deletePerspectiveGroup: (projectId: string | number, groupId: string | number) => 
+      repository.deleteGroup(projectId, groupId)
+  }
+}
+
+
+
+
+
+
+
+import ApiService from '@/services/api.service'
+
+export class ApiPerspectiveRepository {
+  async create(projectId: string | number, payload: any) {
+    const url = `/projects/${projectId}/perspectives/`
+    const response = await ApiService.post(url, payload)
+    return response.data
+  }
+
+  async list(projectId: string | number) {
+    const url = `/projects/${projectId}/perspectives/`
+    const response = await ApiService.get(url)
+    return response.data
+  }
+
+  async createGroup(projectId: string | number, payload: any) {
+    console.log('aqui no repository', payload)
+    const url = `/projects/${projectId}/perspective-groups/`
+    const response = await ApiService.post(url, payload)
+    return response.data
+  }
+
+  async listGroups(projectId: string | number) {
+    const url = `/projects/${projectId}/perspective-groups/`
+    const response = await ApiService.get(url)
+    return response.data
+  }
+
+  async createAnswer(projectId: string | number, payload: any) {
+    const url = `/projects/${projectId}/perspective-answers/`
+    const response = await ApiService.post(url, payload)
+    return response.data
+  }
+
+  async listAnswers(projectId: string | number) {
+    const url = `/projects/${projectId}/perspective-answers/`
+    const response = await ApiService.get(url)
+    return response.data
+  }
+
+  async listAnswersByQuestion(projectId: string | number, questionId: string | number) {
+    const url = `/projects/${projectId}/perspective-answers/?perspective=${questionId}`
+    const response = await ApiService.get(url)
+    return response.data
+  }
+
+  async delete(projectId: string | number, questionId: string | number) {
+    const url = `/projects/${projectId}/perspectives/${questionId}/`
+    const response = await ApiService.delete(url)
+    return response.data
+  }
+
+  async update(projectId: string | number, questionId: string | number, payload: any) {
+    const url = `/projects/${projectId}/perspectives/${questionId}/`
+    const response = await ApiService.put(url, payload)
+    return response.data
+  }
+
+  async deleteGroup(projectId: string | number, groupId: string | number) {
+    const url = `/projects/${projectId}/perspective-groups/${groupId}/`
+    const response = await ApiService.delete(url)
+    return response.data
+  }
+}
+
+
+
+
+
+from datetime import datetime
+import json
+
+from django.db.models import Count, Q
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from projects.permissions import IsProjectMember
+from labels.models import Category
+from label_types.models import CategoryType
+
+
+class LabelVoteHistoryView(APIView):
+    """Return cumulative vote counts per label after each annotation ("versões").
+
+    Query-parameters
+    ----------------
+    before : ISO-8601 datetime (opcional)
+        Considere apenas anotações criadas até esta data.
+    version : int (opcional)
+        Snapshot até à N-ésima anotação.
+    progress : int 0-100 (opcional)
+        Snapshot correspondente a X % do total de anotações.
+        Ignorado se "version" for fornecido.
+    """
+
+    permission_classes = [IsAuthenticated & IsProjectMember]
+
+    def get(self, request, project_id: int):
+        qs = Category.objects.filter(example__project_id=project_id).order_by("created_at", "id")
+
+        # Optional dataset filter
+        dataset_param = request.query_params.get("dataset")
+        if dataset_param:
+            qs = qs.filter(example__upload_name=dataset_param)
+
+        # Optional perspective filters (JSON encoded)
+        perspective_param = request.query_params.get("perspective_filters")
+        if perspective_param:
+            try:
+                perspective_filters = json.loads(perspective_param)
+            except json.JSONDecodeError:
+                perspective_filters = None
+
+            if perspective_filters:
+                combined_q_filters = Q()
+                has_any_filter = False
+
+                for question_id, value in perspective_filters.items():
+                    # Skip if empty list (no specific selection)
+                    if isinstance(value, list) and len(value) == 0:
+                        continue
+
+                    has_any_filter = True
+
+                    if isinstance(value, list):
+                        answer_q = Q(example__perspective_answers__answer__in=[str(v) for v in value])
+                    elif isinstance(value, bool):
+                        answer_q = Q(example__perspective_answers__answer="Yes" if value else "No")
+                    else:
+                        answer_q = Q(example__perspective_answers__answer=str(value))
+
+                    current_q = (
+                        Q(example__perspective_answers__perspective__id=question_id) & answer_q
+                    )
+                    combined_q_filters &= current_q
+
+                if has_any_filter:
+                    qs = qs.filter(combined_q_filters).distinct()
+
+        before_param = request.query_params.get("before")
+        if before_param:
+            try:
+                before_dt = datetime.fromisoformat(before_param)
+            except ValueError:
+                return Response({"detail": "Invalid 'before' param"}, status=400)
+            qs = qs.filter(created_at__lte=before_dt)
+
+        total_annotations = qs.count()
+        if total_annotations == 0:
+            return Response([])
+
+        # Map id -> text for faster lookup
+        label_text_map = {
+            obj.id: obj.text for obj in CategoryType.objects.filter(project_id=project_id)
+        }
+
+        # Apply version / progress filters (deterministic slice)
+        version_param = request.query_params.get("version")
+        progress_param = request.query_params.get("progress")
+        if version_param is not None:
+            try:
+                version_n = int(version_param)
+                if version_n < 1:
+                    raise ValueError
+            except ValueError:
+                return Response({"detail": "version must be positive integer"}, status=400)
+            qs = qs[:version_n]
+        elif progress_param is not None:
+            try:
+                prog = int(progress_param)
+                if not 0 <= prog <= 100:
+                    raise ValueError
+            except ValueError:
+                return Response({"detail": "progress must be integer 0-100"}, status=400)
+            slice_len = max(1, int(total_annotations * prog / 100))
+            qs = qs[:slice_len]
+
+        # Build cumulative counts
+        cumulative = {}
+        results = []
+        version_counter = 0
+        add_all_versions = version_param is None and progress_param is None
+
+        for cat in qs:
+            version_counter += 1
+            cumulative[cat.label_id] = cumulative.get(cat.label_id, 0) + 1
+
+            if add_all_versions:
+                results.append(self._snapshot_obj(version_counter, cumulative, label_text_map))
+
+        if not add_all_versions:
+            results.append(self._snapshot_obj(version_counter, cumulative, label_text_map))
+
+        return Response(results)
+
+    @staticmethod
+    def _snapshot_obj(version: int, cum_dict: dict, label_map: dict):
+        labels = []
+        votes = []
+        for lid, cnt in cum_dict.items():
+            labels.append(label_map.get(lid, str(lid)))
+            votes.append(cnt)
+        return {"version": version, "labels": labels, "votes": votes} 
+
+
+

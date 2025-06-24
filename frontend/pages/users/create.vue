@@ -165,6 +165,10 @@ export default Vue.extend({
         await apiAuthRepository.createUser(this.userData)
         
         this.showSuccess = true
+
+        setTimeout(() => {
+          this.$router.push('/users')
+        }, 1500) 
       } catch (error) {
         console.error('Error creating user:', error.response ? error.response.data : error.message)
         

@@ -74,6 +74,14 @@
             type="password"
             dense
           />
+          <!-- Superuser toggle -->
+          <v-switch
+            v-model="userData.is_superuser"
+            color="primary"
+            label="Make user a superuser (administrator)"
+            class="mt-4"
+            dense
+          />
         </v-form>
       </v-card-text>
       <v-card-actions>
@@ -122,7 +130,8 @@ export default Vue.extend({
         last_name: '',
         email: '',
         password1: '',
-        password2: ''
+        password2: '',
+        is_superuser: false
       },
       userNameRules,
       passwordRules,
@@ -171,6 +180,7 @@ export default Vue.extend({
       this.userData.first_name = user.first_name || ''
       this.userData.last_name = user.last_name || ''
       this.userData.email = user.email
+      this.userData.is_superuser = user.is_superuser || false
     } catch (error) {
       console.error('Error fetching user:', error)
       this.errorMessage = 'Failed to load user information.'
@@ -187,7 +197,8 @@ export default Vue.extend({
           username: this.userData.username,
           first_name: this.userData.first_name,
           last_name: this.userData.last_name,
-          email: this.userData.email
+          email: this.userData.email,
+          is_superuser: this.userData.is_superuser
         }
         if (this.userData.password1) {
           payload.password = this.userData.password1
