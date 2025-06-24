@@ -137,6 +137,12 @@
         </template>
       </v-data-table>
     </v-card-text>
+    <v-snackbar v-model="snackbarError" timeout="3000" top color="error">
+      {{ snackbarErrorMessage }}
+      <template #action="{ attrs }">
+        <v-btn text v-bind="attrs" @click="snackbarError = false">Close</v-btn>
+      </template>
+    </v-snackbar>
   </v-card>
 </template>
 
@@ -164,11 +170,13 @@ export default {
       search: '',
       tableHeaders: [
         { text: 'Dataset', value: 'dataset' },
-        { text: 'Label', value: 'label' },
+        { text: 'Labels', value: 'labels' },
         { text: 'Nº de Votos', value: 'votes' },
         { text: 'Acordo', value: 'agreement' }
       ],
-      dbDiscrepancies: []
+      dbDiscrepancies: [],
+      snackbarError: false,
+      snackbarErrorMessage: ''
     }
   },
   computed: {
@@ -190,49 +198,50 @@ export default {
 
     tableData() {
       const aggregation = {}
-
       this.stats.forEach(s => {
         const datasetName = s.dataset
+        if (!aggregation[datasetName]) {
+          aggregation[datasetName] = {
+            dataset: datasetName,
+            labels: [],
+            votes: [],
+            agreements: []
+          }
+        }
         s.labels.forEach((label, idx) => {
-          const agreementPercentage = s.agreement ? s.agreement[idx] : null
-
-          // Filtro de Acordo
-          if (this.selectedAgreement) {
-            const hasAgreement = agreementPercentage !== null && agreementPercentage >= 70
-            if (this.selectedAgreement === 'agreement' && !hasAgreement) return
-            if (this.selectedAgreement === 'disagreement' && hasAgreement) return
+          const votes = s.votes[idx]
+          aggregation[datasetName].labels.push(label)
+          aggregation[datasetName].votes.push(votes)
+          if (s.agreement && s.agreement[idx] !== null && s.agreement[idx] !== undefined) {
+            aggregation[datasetName].agreements.push(s.agreement[idx])
           }
-
-          // Aplica o filtro de labels aqui
-          const showAllLabels = this.selectedLabels.length === 0 || this.selectedLabels.includes('Todas as Labels')
-          if (!showAllLabels && !this.selectedLabels.includes(label)) {
-            return // Pula esta label se não estiver selecionada
-          }
-
-          const key = `${datasetName}-${label}`
-          if (!aggregation[key]) {
-            aggregation[key] = {
-              dataset: datasetName,
-              label,
-              votes: 0,
-              agreement: agreementPercentage
-            }
-          }
-          aggregation[key].votes += s.votes[idx]
         })
       })
-      
-      const tableRows = Object.values(aggregation)
-      return tableRows.map(row => ({
-        ...row,
-        agreement: (() => {
-          const dbEntry = this.dbDiscrepancies.find(d => d.question === row.label);
-          if (dbEntry) {
-            return dbEntry.status;
+      return Object.values(aggregation)
+        .map(row => {
+          let agreementStatus = 'N/A'
+          if (row.agreements.length > 0) {
+            const avg = row.agreements.reduce((a, b) => a + b, 0) / row.agreements.length
+            agreementStatus = avg >= 70 ? 'Agreement' : 'Disagreement'
           }
-          return row.agreement !== null ? (row.agreement >= 70 ? 'Agreement' : 'Disagreement') : 'N/A';
-        })()
-      }))
+          return {
+            dataset: row.dataset,
+            labels: row.labels.join(', '),
+            votes: row.votes.join(', '),
+            agreement: agreementStatus,
+            labelsArray: row.labels
+          }
+        })
+        .filter(row => {
+          if (!this.selectedAgreement) return true
+          if (this.selectedAgreement === 'agreement') return row.agreement === 'Agreement'
+          if (this.selectedAgreement === 'disagreement') return row.agreement === 'Disagreement'
+          return true
+        })
+        .filter(row => {
+          if (!this.selectedLabels || this.selectedLabels.length === 0 || this.selectedLabels.includes('Todas as Labels')) return true
+          return row.labelsArray.some(label => this.selectedLabels.includes(label))
+        })
     }
   },
   watch: {
@@ -261,18 +270,26 @@ export default {
     async generateReport() {
       try {
         // 1. Buscar discrepâncias da BD
-        const dbResponse = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
-        this.dbDiscrepancies = dbResponse || [];
-        // 2. Buscar os stats do relatório normalmente
-        await this.fetchStats();
-      } catch (e) {
-        if (!e.response || (e.response && e.response.status >= 500)) {
-          this.$toast.error('Database unavailable at the moment, please try again later.')
-        } else {
-          const message = e.response?.data?.detail || 'An unexpected error occurred while generating the report.'
-          this.$toast.error(message)
-          console.error('Failed to generate report', e)
+        try {
+          const dbResponse = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
+          this.dbDiscrepancies = dbResponse || [];
+        } catch (e) {
+          if (!e.response || [404, 500, 502, 503, 504].includes(e.response?.status)) {
+            this.snackbarErrorMessage = 'Database unavailable at the moment, please try again later.';
+            this.snackbarError = true;
+          }
         }
+        // 2. Buscar os stats do relatório normalmente
+        try {
+          await this.fetchStats();
+        } catch (e) {
+          if (!e.response || [404, 500, 502, 503, 504].includes(e.response?.status)) {
+            this.snackbarErrorMessage = 'A base de dados está desligada ou indisponível no momento.';
+            this.snackbarError = true;
+          }
+        }
+      } catch (e) {
+        // fallback, mas não relance!
       }
     },
     clearPerspectiveFilters () {
@@ -325,11 +342,11 @@ export default {
     exportCSV () {
       const delimiter = ';'
       const rows = [
-        ['Dataset', 'Label', 'Nº de Votos', 'Acordo']
+        ['Dataset', 'Labels', 'Nº de Votos', 'Acordo']
       ]
 
       this.tableData.forEach(item => {
-        rows.push([item.dataset, item.label, item.votes, item.agreement])
+        rows.push([item.dataset, item.labels, item.votes, item.agreement])
       })
 
       const csvContent = '\uFEFF' +
@@ -407,10 +424,10 @@ export default {
           doc.setTextColor(0)
         }
 
-        const tableBody = this.tableData.map(item => [item.dataset, item.label, 
-        item.votes, item.agreement])
+        const tableBody = this.tableData.map(item => 
+        [item.dataset, item.labels, item.votes, item.agreement])
         doc.autoTable({
-          head: [['Dataset', 'Label', 'Nº de Votos', 'Acordo']],
+          head: [['Dataset', 'Labels', 'Nº de Votos', 'Acordo']],
           body: tableBody,
           startY: 28,
           margin: { left: margin, right: margin },
