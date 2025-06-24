@@ -13,6 +13,14 @@
           required
         />
         <v-text-field
+          v-model="formData.first_name"
+          label="First Name"
+        />
+        <v-text-field
+          v-model="formData.last_name"
+          label="Last Name"
+        />
+        <v-text-field
           v-model="formData.email"
           label="Email"
           type="email"
@@ -20,10 +28,17 @@
           required
         />
         <v-text-field
-          v-model="formData.password"
-          label="Nova Senha"
+          v-model="formData.password1"
+          label="Password"
           type="password"
           :rules="passwordRules"
+          required
+        />
+        <v-text-field
+          v-model="formData.password2"
+          label="Confirm Password"
+          type="password"
+          :rules="[...passwordRules, passwordMatchRule]"
           required
         />
       </v-form>
@@ -62,8 +77,11 @@ export default {
       formData: {
         id: null,
         username: '',
+        first_name: '',
+        last_name: '',
         email: '',
-        password: ''
+        password1: '',
+        password2: ''
       },
       valid: false,
       usernameRules: [(v) => !!v || 'Campo obrigatório'],
@@ -77,6 +95,13 @@ export default {
       dbErrorMessage: ''
     }
   },
+  computed: {
+    passwordMatchRule() {
+      return () =>
+        this.formData.password1 === this.formData.password2 ||
+        'Passwords must match'
+    }
+  },
   watch: {
     'user.id': {
       immediate: true,
@@ -84,8 +109,11 @@ export default {
         // Se "selectedUser" mudar de ID, atualiza formData
         this.formData.id = newId
         this.formData.username = this.user.username
+        this.formData.first_name = this.user.first_name
+        this.formData.last_name = this.user.last_name
         this.formData.email = this.user.email
-        this.formData.password = ''
+        this.formData.password1 = ''
+        this.formData.password2 = ''
       }
     }
   },
@@ -99,14 +127,21 @@ export default {
       try {
         console.log('Atualizando utilizador ID:', this.formData.id)
 
-        await userService.updateUser(this.formData.id, {
+        const payload = {
           username: this.formData.username,
-          email: this.formData.email,
-          password: this.formData.password
-        })
+          first_name: this.formData.first_name,
+          last_name: this.formData.last_name,
+          email: this.formData.email
+        }
+        if (this.formData.password1) {
+          payload.password = this.formData.password1
+        }
+
+        await userService.updateUser(this.formData.id, payload)
 
         // Limpar o campo da senha
-        this.formData.password = ''
+        this.formData.password1 = ''
+        this.formData.password2 = ''
 
         // Emite para o pai que salvou
         this.$emit('saved')
