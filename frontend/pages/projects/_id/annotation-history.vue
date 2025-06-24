@@ -275,8 +275,8 @@ export default {
       }
       if (this.selectedAnnotationStatus === 'In progress') {
         return this.annotations.filter(a => {
-          // Considera in progress se não tiver status "Finished" ou "Not started"
-          return a.status === 'In progress' || (!a.status && !a.date && a.label);
+          // Tem label (ou seja, alguém já começou), mas ainda não tem data de conclusão
+          return a.label && (!a.date || a.date === 'N/A');
         });
       }
       if (this.selectedAnnotationStatus === 'Not started') {
@@ -338,8 +338,12 @@ export default {
         );
         this.pollTaskStatus();
       } catch (error) {
-        console.error("Error generating report:", error);
-        this.$toasted.error('Error generating report');
+        if (!error.response || (error.response && [500, 502, 503, 504].includes(
+          error.response.status))) {
+          this.$toasted.error('The server/database is unavailable. Please check if the backend is running.');
+        } else {
+          this.$toasted.error('Error generating report');
+        }
         this.loading = false;
       }
     },
@@ -356,8 +360,12 @@ export default {
         );
         this.pollPerspectivesTaskStatus();
       } catch (error) {
-        console.error("Error generating perspectives report:", error);
-        this.$toasted.error('Error generating perspectives report');
+        if (!error.response || (error.response && [500, 502, 503, 504].includes(
+          error.response.status))) {
+          this.$toasted.error('The server/database is unavailable. Please check if the backend is running.');
+        } else {
+          this.$toasted.error('Error generating perspectives report');
+        }
         this.loadingPerspectives = false;
       }
     },

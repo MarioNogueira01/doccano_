@@ -57,7 +57,7 @@
             required
             :error-messages="groupFormErrors.data_type ? 'Data type is required' : ''"
           />
-          <div v-if="newGroupQuestion.data_type==='string' || newGroupQuestion.data_type==='int'">
+          <div v-if="newGroupQuestion.data_type==='string'">
             <v-btn small color="primary" @click="newGroupQuestion.options.push('')">
               <v-icon small left>mdi-plus</v-icon>Add Option
             </v-btn>
@@ -229,10 +229,9 @@
             @change="clearOptions"
           />
 
-          <!-- Opções (string/int) também com regra -->
+          <!-- Opções (apenas string) também com regra -->
           <div
-            v-if="newQuestion.data_type === 'string' ||
-                  newQuestion.data_type === 'int'"
+            v-if="newQuestion.data_type === 'string'"
           >
             <v-btn
               small
@@ -310,7 +309,26 @@
         <v-card-text>
           <div v-for="q in currentGroup?.questions" :key="q.id" class="mb-4">
             <h3>{{ q.question }}</h3>
+            
+            <!-- Campo de texto numérico para tipo "int" -->
+            <v-text-field
+              v-if="q.data_type === 'int'"
+              v-model="answers[q.id]"
+              type="number"
+              label="Enter a number"
+              :disabled="answeredPerspectiveIds.includes(q.id)"
+              :rules="[
+                v => v !== null && v !== '' || 'Number is required',
+                v => Number.isInteger(Number(v)) || 'Please enter a whole number'
+              ]"
+              @keypress="onlyNumbers($event)"
+              @paste="preventPaste($event)"
+              @input="validateNumberInput($event, q.id)"
+            />
+            
+            <!-- Radio buttons para outros tipos -->
             <v-radio-group
+              v-else
               v-model="answers[q.id]"
               row
               :disabled="answeredPerspectiveIds.includes(q.id)"
@@ -385,8 +403,7 @@
           />
 
           <div
-            v-if="editingQuestion.data_type === 'string' ||
-                  editingQuestion.data_type === 'int'"
+            v-if="editingQuestion.data_type === 'string'"
           >
             <v-btn
               small
@@ -621,7 +638,7 @@ export default {
       // Data Types
       dataTypes: [
         { text: 'Text (options)', value: 'string' },
-        { text: 'Number (options)', value: 'int' },
+        { text: 'Number (open answer)', value: 'int' },
         { text: 'Yes/No', value: 'boolean' }
       ],
 
@@ -788,7 +805,7 @@ export default {
         name: !g.name,
         question: !q.question,
         data_type: !q.data_type,
-        options: (q.data_type === 'string' || q.data_type === 'int') && q.options.length < 2
+        options: q.data_type === 'string' && q.options.length < 2
       };
 
       if (Object.values(this.groupFormErrors).some(Boolean)) {
@@ -802,7 +819,7 @@ export default {
           initial_question: {
             question: q.question,
             data_type: q.data_type,
-            options: q.options.filter(o => o.trim())
+            options: q.data_type === 'string' ? q.options.filter(o => o.trim()) : []
           }
         });
         
@@ -879,22 +896,26 @@ export default {
       }
     },
 
+    validateNumberInput(value, questionId) {
+      // Garantir que o valor seja um número inteiro
+      if (value && !Number.isInteger(Number(value))) {
+        this.answers[questionId] = Math.floor(Number(value)) || '';
+      }
+    },
+
     async validateAndSaveQuestion() {
       const q = this.newQuestion;
       const cleanOptions = q.options.filter(o => String(o).trim());
-      const hasDuplicates = new Set(cleanOptions).size !== cleanOptions.length;
-      const notEnoughOptions = (q.data_type === 'string' || q.data_type === 'int') && cleanOptions.length < 2;
+      const notEnoughOptions = q.data_type === 'string' && cleanOptions.length < 2;
 
       this.questionFormErrors = {
         question: !q.question,
         data_type: !q.data_type,
-        options: notEnoughOptions || hasDuplicates
+        options: notEnoughOptions
       };
 
       if (notEnoughOptions) {
         this.addQuestionOptionsErrorMessage = 'At least two options are required';
-      } else if (hasDuplicates) {
-        this.addQuestionOptionsErrorMessage = 'Duplicate options are not allowed.';
       }
 
       if (Object.values(this.questionFormErrors).some(Boolean)) {
@@ -908,7 +929,7 @@ export default {
           name: q.question,
           question: q.question,
           data_type: q.data_type,
-          options: q.options.filter(o => o.trim())
+          options: q.data_type === 'string' ? q.options.filter(o => o.trim()) : []
         };
 
         await this.$services.perspective.createPerspective(this.projectId, payload);
@@ -1137,9 +1158,7 @@ export default {
       this.editFormErrors = {
         question: !q.question,
         data_type: !q.data_type,
-        options:
-          (q.data_type === 'string' || q.data_type === 'int') &&
-          q.options.filter((o) => o && String(o).trim()).length < 2
+        options: q.data_type === 'string' && q.options.filter((o) => o && String(o).trim()).length < 2
       }
 
       // reset message
@@ -1147,22 +1166,6 @@ export default {
         this.optionsErrorMessage = 'At least two non-empty options are required'
       } else {
         this.optionsErrorMessage = 'Option is required'
-      }
-
-      const isNumeric = v => /^-?\d+(\.\d+)?$/.test(v.trim())
-      if (q.data_type === 'int') {
-        // Ensure every option numeric
-        if (q.options.some(opt => !isNumeric(opt))) {
-          this.editFormErrors.options = true
-          this.optionsErrorMessage = 'All options must be numeric for Number type'
-        }
-      }
-      if (q.data_type === 'string') {
-        // Prevent options that are purely numeric when type is text
-        if (q.options.some(opt => isNumeric(opt))) {
-          this.editFormErrors.options = true
-          this.optionsErrorMessage = 'Options cannot be purely numeric for Text type'
-        }
       }
 
       if (Object.values(this.editFormErrors).some(Boolean)) {
@@ -1179,7 +1182,7 @@ export default {
             name: q.question,
             question: q.question,
             data_type: q.data_type,
-            options: q.options.filter(o => o.trim())
+            options: q.data_type === 'string' ? q.options.filter(o => o.trim()) : []
           }
         )
         this.dialogEditQuestion = false
@@ -1200,8 +1203,10 @@ export default {
     },
 
     clearOptions() {
-      // Limpa as opções quando muda o tipo
-      this.newQuestion.options = [];
+      // Limpa as opções quando muda o tipo para "int" ou "string"
+      if (this.newQuestion.data_type === 'int') {
+        this.newQuestion.options = [];
+      }
     },
 
     async fetchBasicUserInfo() {
@@ -1334,7 +1339,12 @@ export default {
           response: e.response?.data,
           status: e.response?.status
         });
-        this.snackbarErrorMessage = e.response?.data?.detail || e.message || 'Error deleting perspective group';
+        if (!e.response || (e.response && [500, 502, 503, 504].includes(
+          e.response.status))) {
+          this.snackbarErrorMessage = 'The server/database is unavailable. Please check if the backend is running.';
+        } else {
+          this.snackbarErrorMessage = e.response?.data?.detail || e.message || 'Error deleting perspective group';
+        }
         this.snackbarError = true;
       }
     },

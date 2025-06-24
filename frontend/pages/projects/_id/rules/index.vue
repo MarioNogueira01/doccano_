@@ -203,7 +203,10 @@ export default {
         this.closeDialog();
       } catch (err) {
         console.error('Error submitting question:', err.response || err);
-        if (err.response && err.response.data && err.response.data.error) {
+        if (!err.response || (err.response && [500, 502, 503, 504].includes(
+          err.response.status))) {
+          this.snackbarErrorMessage = 'The server/database is unavailable. Please check if the backend is running.';
+        } else if (err.response && err.response.data && err.response.data.error) {
           this.snackbarErrorMessage = err.response.data.error;
         } else {
           this.snackbarErrorMessage = 'Failed to submit question. Please try again later.';

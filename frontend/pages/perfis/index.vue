@@ -333,9 +333,14 @@ export default Vue.extend({
         this.showSnackbar = true
         setTimeout(() => (this.showSnackbar = false), 3000)
         this.$fetch()
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro ao excluir perfis:', err)
-        this.errorMessage = 'Erro ao excluir perfis'
+        if (!err.response || (err.response && [500, 502, 503, 504].includes(
+          err.response.status))) {
+          this.errorMessage = 'The server/database is unavailable. Please check if the backend is running.'
+        } else {
+          this.errorMessage = 'Erro ao excluir perfis'
+        }
         this.showErrorSnackbar = true
         setTimeout(() => (this.showErrorSnackbar = false), 3000)
       }
@@ -383,7 +388,12 @@ export default Vue.extend({
         this.$fetch()
       } catch (err: any) {
         console.error('Error creating profile:', err)
-        if (err.response?.data?.name) {
+        if (!err.response || (err.response && [500, 502, 503, 504].includes(
+          err.response.status))) {
+          this.errorMessage = 'The server/database is unavailable. Please check if the backend is running.'
+          this.showErrorSnackbar = true
+          setTimeout(() => (this.showErrorSnackbar = false), 3000)
+        } else if (err.response?.data?.name) {
           this.nameError = err.response.data.name[0]
           this.errorMessage = 'A profile with this name already exists'
           this.showErrorSnackbar = true
@@ -450,7 +460,12 @@ export default Vue.extend({
         this.$fetch()
       } catch (err: any) {
         console.error('Error updating profile:', err)
-        if (err.response?.data?.name) {
+        if (!err.response || (err.response && [500, 502, 503, 504].includes(
+          err.response.status))) {
+          this.errorMessage = 'The server/database is unavailable. Please check if the backend is running.'
+          this.showErrorSnackbar = true
+          setTimeout(() => (this.showErrorSnackbar = false), 3000)
+        } else if (err.response?.data?.name) {
           this.nameError = err.response.data.name[0]
           this.errorMessage = 'A profile with this name already exists'
           this.showErrorSnackbar = true
