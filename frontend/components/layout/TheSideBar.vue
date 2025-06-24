@@ -41,17 +41,17 @@
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/anotacao`))"
                 >
-                  <v-list-item-title>Relatório de Anotação</v-list-item-title>
+                  <v-list-item-title>Annotation Report</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotators`))"
                 >
-                  <v-list-item-title>Relatório de Anotadores</v-list-item-title>
+                  <v-list-item-title>Annotators Report</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/history-stats`))"
                 >
-                  <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
+                  <v-list-item-title>History Statistics</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/annotation-history`))"
@@ -116,19 +116,19 @@ export default {
       const items = [
         {
           icon: mdiHome,
-          text: this.$t('projectHome.home'),
+          text: 'Home',
           link: '',
           isVisible: true
         },
         {
           icon: mdiDatabase,
-          text: this.$t('dataset.dataset'),
+          text: 'Dataset',
           link: 'dataset',
           isVisible: true
         },
         {
           icon: mdiLabel,
-          text: this.$t('labels.labels'),
+          text: 'Labels',
           link: 'labels',
           isVisible:
             (this.isProjectAdmin ||
@@ -146,7 +146,7 @@ export default {
         },
         {
           icon: mdiAccount,
-          text: this.$t('members.members'),
+          text: 'Members',
           link: 'members',
           isVisible: this.isProjectAdmin
         },
@@ -158,13 +158,13 @@ export default {
         },
         {
           icon: mdiBookOpenOutline,
-          text: this.$t('guideline.guideline'),
+          text: 'Guideline',
           link: 'guideline',
           isVisible: this.isProjectAdmin
         },
         {
           icon: mdiChartBar,
-          text: this.$t('statistics.statistics'),
+          text: 'Statistics',
           link: 'metrics',
           isVisible: this.isProjectAdmin
         },
@@ -210,7 +210,7 @@ export default {
 
         {
           icon: mdiCog,
-          text: this.$t('settings.title'),
+          text: 'Settings',
           link: 'settings',
           isVisible: this.isProjectAdmin
         },
