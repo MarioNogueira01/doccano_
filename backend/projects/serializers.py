@@ -202,10 +202,7 @@ class PerspectiveGroupSerializer(serializers.ModelSerializer):
 
 class PerspectiveAnswerSerializer(serializers.ModelSerializer):
     created_by_username = serializers.SerializerMethodField()
-    # If there's no created_at field, you can add a method field to return current time
-    created_at = serializers.SerializerMethodField(required=False)
 
-    # NEW: validate to ensure user answers only once per perspective
     def validate(self, attrs):
         """Ensure a user can submit only one answer per perspective question."""
         request = self.context.get('request')
@@ -236,21 +233,12 @@ class PerspectiveAnswerSerializer(serializers.ModelSerializer):
             'id', 'perspective', 'project', 'example', 'answer', 
             'created_by', 'created_by_username', 'created_at'
         ]
+        read_only_fields = ['id', 'created_at']
     
     def get_created_by_username(self, obj):
         if obj.created_by:
             return obj.created_by.username
         return None
-    
-    def get_created_at(self, obj):
-        # If your model has a different timestamp field, use that
-        if hasattr(obj, 'created_date'):
-            return obj.created_date
-        if hasattr(obj, 'timestamp'):
-            return obj.timestamp
-        # Otherwise return current time
-        from django.utils import timezone
-        return timezone.now()
 
 
 

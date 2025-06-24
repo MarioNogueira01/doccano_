@@ -287,9 +287,9 @@ class PerspectiveAnswer(models.Model):
         null=True,
     )
     answer = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-
         return f"Answer to {self.perspective.question}: {self.answer}"
 
 

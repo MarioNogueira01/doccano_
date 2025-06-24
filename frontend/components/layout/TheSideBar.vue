@@ -41,17 +41,17 @@
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/anotacao`))"
                 >
-                  <v-list-item-title>Relatório de Anotação</v-list-item-title>
+                  <v-list-item-title>Annotation Report</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/rules/annotators`))"
                 >
-                  <v-list-item-title>Relatório de Anotadores</v-list-item-title>
+                  <v-list-item-title>Annotators Report</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/history-stats`))"
                 >
-                  <v-list-item-title>Estatísticas do Histórico</v-list-item-title>
+                  <v-list-item-title>History Statistics</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   @click="$router.push(localePath(`/projects/${$route.params.id}/annotation-history`))"

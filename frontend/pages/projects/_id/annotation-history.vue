@@ -23,7 +23,6 @@
           dense
           class="mb-2"
         ></v-select>
-
         <v-spacer></v-spacer>
         <v-btn color="primary" :loading="loading" :disabled="loading"
          type="button" @click="generateReport">
@@ -41,89 +40,111 @@
         <!-- Content for Annotations Tab -->
         <v-tabs-items v-model="selectedTab">
           <v-tab-item value="tab-annotations">
-            <template v-if="selectedReportType === 'Annotation History'">
-              <v-toolbar flat dense class="mb-4">
-                <v-spacer></v-spacer>
-                <v-select
-                  v-model="selectedDatasetName"
-                  :items="datasetNames"
-                  label="Dataset"
-                  outlined
-                  dense
-                  class="mb-2"
-                  @change="handleDatasetChange"
-                ></v-select>
-                <v-select
-                  v-model="selectedAnnotationStatus"
-                  :items="annotationStatuses"
-                  label="Annotation Status"
-                  outlined
-                  dense
-                  class="mb-2"
-                  @change="handleAnnotationStatusChange"
-                ></v-select>
-                <v-btn text @click="clearFilters">
-                  CLEAR FILTERS
-                </v-btn>
-              </v-toolbar>
-              <v-data-table
-                :headers="headers"
-                :items="filteredAnnotations"
-                :loading="loading"
-                class="elevation-1 mb-4"
-              ></v-data-table>
+            <v-toolbar flat dense class="mb-4">
+              <v-spacer></v-spacer>
+              <v-select
+                v-model="selectedDatasetName"
+                :items="datasetNames"
+                label="Dataset"
+                outlined
+                dense
+                class="mb-2"
+                @change="handleDatasetChange"
+              ></v-select>
+              <v-select
+                v-model="selectedAnnotationStatus"
+                :items="annotationStatuses"
+                label="Annotation Status"
+                outlined
+                dense
+                class="mb-2"
+                @change="handleAnnotationStatusChange"
+              ></v-select>
+              <v-btn text @click="clearFilters">
+                CLEAR FILTERS
+              </v-btn>
+            </v-toolbar>
+            <v-data-table
+              :headers="headers"
+              :items="filteredAnnotations"
+              :loading="loading"
+              class="elevation-1 mb-4"
+            ></v-data-table>
 
-              <!-- Perspectives Table -->
-              <v-divider class="my-6"></v-divider>
-              
-              <v-card-title class="px-0">
-                <h2 class="text-h5">Perspectives</h2>
-                <v-spacer></v-spacer>
-                <v-btn color="primary" class="mr-2" :loading="loadingPerspectives"
-                 :disabled="loadingPerspectives" @click="generatePerspectivesReport">
-                  <v-icon left>mdi-file-document-outline</v-icon>
-                  Generate Perspectives
-                </v-btn>
-                <v-btn color="primary" outlined :disabled="
-                !perspectivesDownloadReady" @click="showPerspectivesExportDialog = true">
-                  <v-icon left>mdi-download</v-icon>
-                  Export Perspectives
-                </v-btn>
-              </v-card-title>
+            <!-- Perspectives Table -->
+            <v-divider class="my-6"></v-divider>
+            
+            <v-card-title class="px-0">
+              <h2 class="text-h5">Perspectives</h2>
+              <v-spacer></v-spacer>
+              <v-btn color="primary" class="mr-2" :loading="loadingPerspectives"
+               :disabled="loadingPerspectives" @click="generatePerspectivesReport">
+                <v-icon left>mdi-file-document-outline</v-icon>
+                Generate Perspectives
+              </v-btn>
+              <v-btn color="primary" outlined :disabled="
+              !perspectivesDownloadReady" @click="showPerspectivesExportDialog = true">
+                <v-icon left>mdi-download</v-icon>
+                Export Perspectives
+              </v-btn>
+            </v-card-title>
 
-              <v-row class="mb-2" align="center">
-                <v-col cols="12" sm="4" md="3">
-                  <v-select
-                    v-model="selectedPerspectiveAnswerType"
-                    :items="perspectiveAnswerTypes"
-                    label="Filter by Answer Type"
-                    dense
-                    outlined
-                  ></v-select>
-                </v-col>
-              </v-row>
-              <v-data-table
-                :headers="perspectiveHeaders"
-                :items="filteredPerspectives"
-                :loading="loadingPerspectives"
-                class="elevation-1"
-              ></v-data-table>
-            </template>
-            <template v-else>
-              <!-- Placeholder for Discrepancy Report content under Annotations tab -->
-              <p>Content for Discrepancy Report (Annotations view)</p>
-            </template>
+            <v-row class="mb-2" align="center">
+              <v-col cols="12" sm="4" md="3">
+                <v-select
+                  v-model="selectedPerspectiveAnswerType"
+                  :items="perspectiveAnswerTypes"
+                  label="Filter by Answer Type"
+                  dense
+                  outlined
+                ></v-select>
+              </v-col>
+            </v-row>
+            <v-data-table
+              :headers="perspectiveHeaders"
+              :items="filteredPerspectives"
+              :loading="loadingPerspectives"
+              class="elevation-1"
+            ></v-data-table>
+
+            <!-- Discrepancies Table -->
+            <v-divider class="my-6"></v-divider>
+
+            <v-card-title class="px-0">
+              <h2 class="text-h5">Discrepancies</h2>
+              <v-spacer></v-spacer>
+              <v-btn
+                color="primary"
+                class="mr-2"
+                :loading="loadingDiscrepancies"
+                :disabled="loadingDiscrepancies"
+                @click="generateDiscrepancyReport"
+              >
+                <v-icon left>mdi-file-document-outline</v-icon>
+                Generate Discrepancies
+              </v-btn>
+              <v-btn
+                color="primary"
+                outlined
+                :disabled="!discrepancyDownloadReady"
+                @click="showDiscrepanciesExportDialog = true"
+              >
+                <v-icon left>mdi-download</v-icon>
+                Export Discrepancies
+              </v-btn>
+            </v-card-title>
+            
+            <v-data-table
+              :headers="discrepancyHeaders"
+              :items="discrepancies.map(d => ({ ...d, perspective_answers: undefined }))"
+              :loading="loadingDiscrepancies"
+              class="elevation-1"
+            ></v-data-table>
           </v-tab-item>
 
           <!-- Content for Annotators Tab -->
           <v-tab-item value="tab-annotators">
-            <!-- This content will change based on selectedReportType too -->
-            <template v-if="selectedReportType === 'Annotation History'">
-              <p>Content for Annotation History (Annotators view)</p>
-            </template>
-            <template v-else>
-              <p>Content for Discrepancy Report (Annotators view)</p>
-            </template>
+            <p>Content for Annotation History (Annotators view)</p>
           </v-tab-item>
         </v-tabs-items>
       </v-card-text>
@@ -204,6 +225,44 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Discrepancies Export Format Dialog -->
+    <v-dialog v-model="showDiscrepanciesExportDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-h5">
+          <v-icon left color="primary">mdi-download</v-icon>
+          Choose Export Format
+        </v-card-title>
+        <v-card-text>
+          <v-radio-group v-model="selectedDiscrepanciesExportFormat" class="mt-4">
+            <v-radio label="PDF" value="pdf">
+              <template #label>
+                <div class="d-flex align-center">
+                  <v-icon left color="red" class="mr-2">mdi-file-pdf-box</v-icon>
+                  PDF Format
+                </div>
+              </template>
+            </v-radio>
+            <v-radio label="CSV" value="csv">
+              <template #label>
+                <div class="d-flex align-center">
+                  <v-icon left color="green" class="mr-2">mdi-file-excel</v-icon>
+                  CSV Format
+                </div>
+              </template>
+            </v-radio>
+          </v-radio-group>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="showDiscrepanciesExportDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="handleDiscrepanciesExport">
+            <v-icon left>mdi-download</v-icon>
+            Export
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -221,8 +280,6 @@ export default {
   data() {
     return {
       selectedTab: 'tab-annotations', // Default selected tab
-      selectedReportType: 'Annotation History', // Default selected report type
-      reportTypes: ['Annotation History', 'Discrepancy Report'], // Report types
       datasetNames: [], // Dynamically loaded dataset names
       selectedDatasetName: null,
       annotationStatuses: ['All', 'Finished', 'In progress', 'Not started'], // Annotation statuses
@@ -240,16 +297,27 @@ export default {
         { text: 'Answered By', value: 'answered_by' },
         { text: 'Answer Date', value: 'answer_date' },
       ],
+      discrepancyHeaders: [
+        { text: 'Example ID', value: 'example_id' },
+        { text: 'Text', value: 'text' },
+        { text: 'Is Discrepancy', value: 'is_discrepancy' },
+        { text: 'Max. Percentage', value: 'max_percentage' }
+      ],
       annotations: [], // Initialize as empty array
       perspectives: [], // Initialize perspectives array
+      discrepancies: [], // Initialize discrepancies array
       loading: false,
       loadingPerspectives: false,
+      loadingDiscrepancies: false,
       taskId: null,
       perspectivesTaskId: null,
+      discrepancyTaskId: null,
       polling: null,
       perspectivesPolling: null,
+      discrepancyPolling: null,
       downloadReady: false,
       perspectivesDownloadReady: false,
+      discrepancyDownloadReady: false,
       mdiMagnify,
       showExportDialog: false,
       selectedExportFormat: 'pdf',
@@ -257,6 +325,10 @@ export default {
       selectedPerspectivesExportFormat: 'pdf',
       selectedPerspectiveAnswerType: 'All',
       perspectiveAnswerTypes: ['All', 'Yes/No', 'Number', 'Text'],
+      selectedReportType: null,
+      reportTypes: ['Annotation History'],
+      showDiscrepanciesExportDialog: false,
+      selectedDiscrepanciesExportFormat: 'pdf',
     };
   },
   computed: {
@@ -314,6 +386,7 @@ export default {
   beforeDestroy() {
     clearInterval(this.polling);
     clearInterval(this.perspectivesPolling);
+    clearInterval(this.discrepancyPolling);
   },
   methods: {
     async fetchDatasetNames() {
@@ -370,6 +443,27 @@ export default {
       }
     },
 
+    async generateDiscrepancyReport() {
+      this.loadingDiscrepancies = true;
+      this.discrepancyDownloadReady = false;
+      this.discrepancies = []; // Clear previous discrepancies
+      try {
+        this.discrepancyTaskId = await this.$repositories.discrepancyHistory.prepare(
+          this.projectId,
+          this.selectedDatasetName
+        );
+        this.pollDiscrepancyTaskStatus();
+      } catch (error) {
+        if (!error.response || (error.response && [500, 502, 503, 504].includes(
+          error.response.status))) {
+          this.$toasted.error('The server/database is unavailable. Please check if the backend is running.');
+        } else {
+          this.$toasted.error('Error generating discrepancy report');
+        }
+        this.loadingDiscrepancies = false;
+      }
+    },
+
     pollTaskStatus() {
       if (this.polling) {
         clearInterval(this.polling);
@@ -399,10 +493,24 @@ export default {
                 this.taskId
               );
 
-              this.annotations = data.map(item => ({
-                ...item,
-                date: new Date(item.date).toLocaleString() // Format date
-              }));
+              this.annotations = data.map(item => {
+                let formattedDate = 'N/A';
+                if (item.date && item.date !== 'N/A') {
+                  try {
+                    const date = new Date(item.date);
+                    if (!isNaN(date.getTime())) {
+                      formattedDate = date.toLocaleString();
+                    }
+                  } catch (e) {
+                    console.warn('Invalid date format for annotation:', item.date);
+                  }
+                }
+                
+                return {
+                  ...item,
+                  date: formattedDate
+                };
+              });
 
               console.log("Fetched annotations:", this.annotations);
               this.downloadReady = true;
@@ -484,9 +592,21 @@ export default {
 
                 if (Array.isArray(currentPerspectives)) {
                   currentPerspectives.forEach(perspective => {
+                    let formattedDate = 'N/A';
+                    if (perspective.answer_date && perspective.answer_date !== 'N/A') {
+                      try {
+                        const date = new Date(perspective.answer_date);
+                        if (!isNaN(date.getTime())) {
+                          formattedDate = date.toLocaleString();
+                        }
+                      } catch (e) {
+                        console.warn('Invalid date format:', perspective.answer_date);
+                      }
+                    }
+                    
                     acc.push({
                       ...perspective,
-                      answer_date: new Date(perspective.answer_date).toLocaleString()
+                      answer_date: formattedDate
                     });
                   });
                 }
@@ -510,6 +630,51 @@ export default {
           clearInterval(this.perspectivesPolling);
           this.perspectivesPolling = null;
           this.loadingPerspectives = false;
+        }
+      }, 1000);
+    },
+
+    pollDiscrepancyTaskStatus() {
+      if (this.discrepancyPolling) {
+        clearInterval(this.discrepancyPolling);
+        this.discrepancyPolling = null;
+      }
+
+      this.discrepancyPolling = setInterval(async () => {
+        if (!this.discrepancyTaskId) {
+          clearInterval(this.discrepancyPolling);
+          this.discrepancyPolling = null;
+          return;
+        }
+
+        try {
+          const res = await this.$repositories.taskStatus.get(this.discrepancyTaskId);
+          if (res && res.ready) {
+            if (!res.error) {
+              clearInterval(this.discrepancyPolling);
+              this.discrepancyPolling = null;
+              this.loadingDiscrepancies = false;
+
+              const data = await this.$repositories.discrepancyHistory.fetch(
+                this.projectId,
+                this.discrepancyTaskId
+              );
+              this.discrepancies = data;
+              this.discrepancyDownloadReady = true;
+              this.$toasted.success('Discrepancy report generated successfully!');
+            } else {
+              clearInterval(this.discrepancyPolling);
+              this.discrepancyPolling = null;
+              this.loadingDiscrepancies = false;
+              this.$toasted.error(`Error generating discrepancy report: ${res.error || 'Unknown error'}`);
+            }
+          }
+        } catch (error) {
+          console.error("Error polling discrepancy task status:", error);
+          this.$toasted.error('Error polling discrepancy report status');
+          clearInterval(this.discrepancyPolling);
+          this.discrepancyPolling = null;
+          this.loadingDiscrepancies = false;
         }
       }, 1000);
     },
@@ -591,14 +756,22 @@ export default {
         clearInterval(this.perspectivesPolling);
         this.perspectivesPolling = null;
       }
+      if (this.discrepancyPolling) {
+        clearInterval(this.discrepancyPolling);
+        this.discrepancyPolling = null;
+      }
       this.taskId = null;
       this.perspectivesTaskId = null;
+      this.discrepancyTaskId = null;
       this.downloadReady = false;
       this.perspectivesDownloadReady = false;
+      this.discrepancyDownloadReady = false;
       this.loading = false;
       this.loadingPerspectives = false;
+      this.loadingDiscrepancies = false;
       this.annotations = []; // Clear table data on reset
       this.perspectives = []; // Clear perspectives data on reset
+      this.discrepancies = []; // Clear discrepancy data on reset
     },
 
     clearFilters() {
@@ -632,8 +805,8 @@ export default {
       }
     },
 
-    async exportPDF(event) {
-      if (event && event.preventDefault) event.preventDefault();
+    async exportPDF() {
+      if (window.event && event.preventDefault) event.preventDefault();
       try {
         const JsPDF = await this.loadJsPDF()
         const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
@@ -974,7 +1147,159 @@ export default {
         console.error('Error exporting perspectives CSV:', error)
         this.$toasted.error('Failed to export perspectives CSV')
       }
-    }
+    },
+
+    async handleDiscrepanciesExport() {
+      this.showDiscrepanciesExportDialog = false
+      if (this.selectedDiscrepanciesExportFormat === 'pdf') {
+        await this.exportDiscrepanciesPDF()
+      } else {
+        await this.exportDiscrepanciesCSV()
+      }
+    },
+
+    async exportDiscrepanciesPDF() {
+      if (window.event) window.event.preventDefault?.();
+      try {
+        const JsPDF = await this.loadJsPDF()
+        const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const pageHeight = doc.internal.pageSize.getHeight()
+        const margin = 20
+        // Cores
+        const primaryColor = [63, 81, 181] // Azul
+        const secondaryColor = [96, 125, 139] // Cinza azulado
+        // Cabeçalho
+        doc.setFillColor(...primaryColor)
+        doc.rect(0, 0, pageWidth, 40, 'F')
+        // Título principal
+        doc.setFontSize(24)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text('Discrepancy Report', pageWidth / 2, 25, { align: 'center' })
+        // Informações do projeto
+        doc.setFontSize(12)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'normal')
+        doc.text(`Project ID: ${this.projectId}`, margin, 35)
+        // Informações de geração
+        doc.setFillColor(255, 255, 255)
+        doc.rect(margin, 45, pageWidth - 2 * margin, 25, 'F')
+        doc.setFontSize(10)
+        doc.setTextColor(0, 0, 0)
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, margin + 5, 55)
+        doc.text(`Dataset: ${this.selectedDatasetName || 'All datasets'}`, margin + 5, 62)
+        // Estatísticas
+        const statsY = 80
+        doc.setFillColor(...secondaryColor)
+        doc.rect(margin, statsY, pageWidth - 2 * margin, 15, 'F')
+        doc.setFontSize(12)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text('Statistics', margin + 5, statsY + 10)
+        // Tabela de discrepancies
+        const tableY = statsY + 20
+        doc.autoTable({
+          startY: tableY,
+          head: [[
+            'Example ID',
+            'Text',
+            'Is Discrepancy',
+            'Max. Percentage'
+          ]],
+          body: this.discrepancies.map(item => [
+            item.example_id || 'N/A',
+            (item.text || 'N/A').substring(0, 40) + (item.text && item.text.length > 40 ? '...' : ''),
+            item.is_discrepancy ? 'Yes' : 'No',
+            item.max_percentage != null ? item.max_percentage.toFixed(2) + '%' : 'N/A'
+          ]),
+          margin: { left: margin, right: margin },
+          theme: 'grid',
+          headStyles: { 
+            fillColor: primaryColor, 
+            halign: 'center', 
+            valign: 'middle', 
+            textColor: 255,
+            fontSize: 10,
+            fontStyle: 'bold'
+          },
+          bodyStyles: { 
+            halign: 'left',
+            fontSize: 9,
+            textColor: 0
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245]
+          },
+          styles: { 
+            fontSize: 9,
+            cellPadding: 3
+          },
+          columnStyles: {
+            0: { cellWidth: 20 }, // Example ID
+            1: { cellWidth: 50 }, // Text
+            2: { cellWidth: 25 }, // Is Discrepancy
+            3: { cellWidth: 30 }, // Max. Percentage
+          }
+        })
+        // Rodapé
+        const footerY = pageHeight - 20
+        doc.setFillColor(...secondaryColor)
+        doc.rect(0, footerY, pageWidth, 20, 'F')
+        doc.setFontSize(8)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'normal')
+        doc.text('Generated by Doccano Annotation Platform', pageWidth / 2, footerY + 8, { align: 'center' })
+        doc.text(`Page 1 of 1`, pageWidth - margin, footerY + 8, { align: 'right' })
+        // Gerar blob e abrir numa nova aba
+        const pdfBlob = doc.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+        this.$toasted.success('PDF opened in new tab!')
+      } catch (e) {
+        console.error('Failed to export discrepancies PDF', e)
+        this.$toasted.error('Failed to export discrepancies PDF')
+      }
+    },
+
+    exportDiscrepanciesCSV() {
+      try {
+        const delimiter = ';'
+        const rows = [
+          ['Example ID', 'Text', 'Is Discrepancy', 'Max. Percentage']
+        ]
+        // Add discrepancies data
+        const discrepancyRows = this.discrepancies.map(item => [
+          item.example_id,
+          item.text,
+          item.is_discrepancy ? 'Yes' : 'No',
+          item.max_percentage != null ? item.max_percentage.toFixed(2) + '%' : 'N/A'
+        ])
+        rows.push(...discrepancyRows)
+        const csvContent = '\uFEFF' + // UTF-8 BOM for better compatibility (Excel)
+          rows
+            .map(r => r.map(item => {
+              const field = String(item)
+              const needsQuotes = field.includes(delimiter) || field.includes('"') || field.includes('\n')
+              const escaped = field.replace(/"/g, '""')
+              return needsQuotes ? `"${escaped}"` : escaped
+            }).join(delimiter))
+            .join('\r\n')
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `project-${this.projectId}-discrepancies-report.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        this.$toasted.success('Discrepancies CSV exported successfully!')
+      } catch (error) {
+        console.error('Error exporting discrepancies CSV:', error)
+        this.$toasted.error('Failed to export discrepancies CSV')
+      }
+    },
   },
 };
 </script>
