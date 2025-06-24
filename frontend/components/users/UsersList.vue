@@ -33,11 +33,21 @@
             'YYYY/MM/DD HH:mm') : '-' }}
       </span>
     </template>
+
+    <!-- Actions column -->
+    <template #[`item.actions`]="{ item }">
+      <v-icon
+        small
+        class="mr-2 hoverable"
+        :title="$t('generic.edit') || 'Edit'"
+        @click="goEdit(item.id)"
+      >{{ mdiPencil }}</v-icon>
+    </template>
   </v-data-table>
 </template>
 
 <script lang="ts">
-import { mdiMagnify } from '@mdi/js'
+import { mdiMagnify, mdiPencil } from '@mdi/js'
 import { dateFormat } from '@vuejs-community/vue-filter-date-format'
 import { dateParse } from '@vuejs-community/vue-filter-date-parse'
 import type { PropType } from 'vue'
@@ -64,6 +74,7 @@ export default Vue.extend({
       sortBy: 'username',
       sortDesc: false,
       mdiMagnify,
+      mdiPencil,
       dateFormat,
       dateParse
     }
@@ -75,7 +86,8 @@ export default Vue.extend({
         { text: this.$t('username'), value: 'username', sortable: true },
         { text: this.$t('email'), value: 'email', sortable: true },
         { text: this.$t('SuperUser'), value: 'isSuperuser', sortable: true },
-        { text: this.$t('last login'), value: 'last_login', sortable: true }
+        { text: this.$t('last login'), value: 'last_login', sortable: true },
+        { text: '', value: 'actions', sortable: false }
       ]
     },
     filteredItems() {
@@ -97,6 +109,9 @@ export default Vue.extend({
   },
 
   methods: {
+    goEdit(id) {
+      this.$router.push(`/users/${id}/edit`)
+    },
     updateOptions(options) {
       this.sortBy = options.sortBy[0] || 'username';
       this.sortDesc = options.sortDesc[0] || false;

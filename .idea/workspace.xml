@@ -5,31 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a484398d-3529-417b-a5fd-e173368e4a6d" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/doccano_mario_newgit.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/doccano_mario_newgit.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/config/settings/base.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/config/settings/base.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/data_export/celery_tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/data_export/celery_tasks.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/data_export/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/data_export/urls.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/data_export/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/data_export/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/labels/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/labels/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/labels/serializers.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/labels/serializers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/labels/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/labels/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/projects/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/projects/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/projects/serializers.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/projects/serializers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/projects/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/projects/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/projects/views/project.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/projects/views/project.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/projects/views/rules.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/projects/views/rules.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/components/project/ProjectList.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/project/ProjectList.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/domain/models/celery/status.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/domain/models/celery/status.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/domain/models/project/project.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/domain/models/project/project.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/nuxt.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/nuxt.config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/pages/projects/_id/annotation-history.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/pages/projects/_id/annotation-history.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/pages/projects/_id/dataset/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/pages/projects/_id/dataset/index.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/plugins/repositories.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/plugins/repositories.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/presenter/linkToAnnotationPage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presenter/linkToAnnotationPage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/repositories/example/apiDocumentRepository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/repositories/example/apiDocumentRepository.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,28 +53,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenDjangoStructureViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;teste4&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/LEI/3_ano/LES/doccano_mario_newgit&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;C:\\LEI\\3_ano\\LES\\doccano_mario_newgit\\frontend\\node_modules\\prettier&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;C:\\LEI\\3_ano\\LES\\doccano_mario_newgit\\frontend\\node_modules\\typescript\\lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenDjangoStructureViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "Trabfinal",
+    "last_opened_file_path": "C:/LEI/3_ano/LES/doccano_mario_newgit",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "prettierjs.PrettierConfiguration.Package": "C:\\LEI\\3_ano\\LES\\doccano_mario_newgit\\frontend\\node_modules\\prettier",
+    "ts.external.directory.path": "C:\\LEI\\3_ano\\LES\\doccano_mario_newgit\\frontend\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;vue.recent.templates&quot;: [
-      &quot;Vue Composition API Component&quot;
+  "keyToStringList": {
+    "vue.recent.templates": [
+      "Vue Composition API Component"
     ]
   }
-}</component>
+}]]></component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

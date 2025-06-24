@@ -2,11 +2,11 @@
   <div class="form-container">
     <v-card class="user-form">
       <v-card-title>
-        <span class="text-h5">Create User</span>
+        <span class="text-h5">Edit User</span>
         <v-spacer></v-spacer>
       </v-card-title>
 
-      <!-- Error message as pop-up central superior -->
+      <!-- Error message -->
       <transition name="fade">
         <div v-if="errorMessage" class="error-message">
           <v-icon small class="mr-2" color="error">mdi-alert-circle</v-icon>
@@ -14,16 +14,16 @@
         </div>
       </transition>
 
-      <!-- Success message with transition -->
+      <!-- Success message -->
       <transition name="fade">
         <div v-if="showSuccess" class="success-message">
           <v-icon small class="mr-2" color="success">mdi-check-circle</v-icon>
-          User created successfully!
+          User updated successfully!
         </div>
       </transition>
 
       <v-card-text>
-        <v-form v-model="valid">
+        <v-form v-model="valid" ref="form">
           <v-text-field
             v-model="userData.username"
             :rules="userNameRules('Username is required')"
@@ -31,12 +31,11 @@
             name="username"
             :prepend-icon="mdiAccount"
             type="text"
-            autofocus
             dense
           />
           <v-text-field
             v-model="userData.first_name"
-            label="First Name" 
+            label="First Name"
             name="first_name"
             :prepend-icon="mdiAccount"
             dense
@@ -44,7 +43,7 @@
           <v-text-field
             v-model="userData.last_name"
             label="Last Name"
-            name="last_name" 
+            name="last_name"
             :prepend-icon="mdiAccount"
             dense
           />
@@ -59,7 +58,7 @@
           />
           <v-text-field
             v-model="userData.password1"
-            :rules="passwordRules('Password is required')"
+            :rules="optionalPasswordRules"
             label="Password"
             name="password1"
             :prepend-icon="mdiLock"
@@ -68,22 +67,21 @@
           />
           <v-text-field
             v-model="userData.password2"
-            :rules="[...passwordRules('Confirm password is required'), passwordMatchRule]"
+            :rules="[confirmPasswordRequiredRule, passwordMatchRule]"
             label="Confirm Password"
             name="password2"
             :prepend-icon="mdiLock"
             type="password"
             dense
           />
-          
-          <!-- Add this superuser toggle -->
+          <!-- Superuser toggle -->
           <v-switch
             v-model="userData.is_superuser"
             color="primary"
             label="Make user a superuser (administrator)"
             class="mt-4"
             dense
-          ></v-switch>
+          />
         </v-form>
       </v-card-text>
       <v-card-actions>
@@ -92,17 +90,17 @@
           class="text-capitalize mr-3"
           outlined
           color="error"
-          @click= "goBack"
+          @click="goBack"
         >
           {{ $t('generic.cancel') || 'Cancel' }}
         </v-btn>
         <v-btn
-          :disabled="!valid"
+          :disabled="!canSave"
           color="primary"
           class="text-capitalize"
-          @click="createUser"
+          @click="updateUser"
         >
-          {{ $t('generic.create') || 'Create User' }}
+          {{ $t('generic.save') || 'Save' }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -111,12 +109,14 @@
 
 <script lang="ts">
 import Vue from 'vue'
-import { mdiAccount, mdiLock, mdiEmail, mdiCheckCircle, mdiMapMarker, mdiAlertCircle } from '@mdi/js'
+import { mdiAccount, mdiLock, mdiEmail, mdiCheckCircle, mdiAlertCircle } from '@mdi/js'
 import { userNameRules, passwordRules } from '@/rules/index'
-import { APIAuthRepository } from '@/repositories/auth/apiAuthRepository'
+import { APIUserRepository } from '@/repositories/user/apiUserRepository'
+import userService from '~/services/userService'
 
 export default Vue.extend({
   layout: 'projects',
+  middleware: ['check-auth', 'auth'],
 
   data() {
     return {
@@ -124,13 +124,14 @@ export default Vue.extend({
       showSuccess: false,
       errorMessage: '',
       userData: {
+        id: null,
         username: '',
         first_name: '',
         last_name: '',
         email: '',
         password1: '',
         password2: '',
-        is_superuser: false,
+        is_superuser: false
       },
       userNameRules,
       passwordRules,
@@ -138,56 +139,77 @@ export default Vue.extend({
       mdiLock,
       mdiEmail,
       mdiCheckCircle,
-      mdiMapMarker,
       mdiAlertCircle,
       emailRules: [
         (v: string) => !!v || 'Email is required',
         (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
+      ],
+      optionalPasswordRules: [
+        (v: string) => !v || (v.length <= 30) || 'Password must be less than 30 chars'
       ]
     }
   },
 
   computed: {
+    canSave(): boolean {
+      if (!this.valid) return false
+      const p1 = this.userData.password1
+      const p2 = this.userData.password2
+      if (!p1) return true // no password change, other fields valid
+      return !!p2 && p1 === p2 // only enable if both passwords filled and match
+    },
+    confirmPasswordRequiredRule() {
+      return (v: string) =>
+        !this.userData.password1 || !!v || 'Confirm password is required'
+    },
     passwordMatchRule() {
-      return () => 
-        this.userData.password1 === this.userData.password2 || 
+      return () =>
+        this.userData.password1 === this.userData.password2 ||
         'Passwords must match'
     }
   },
 
+  async fetch() {
+    // Load existing user data
+    const id = this.$route.params.id
+    try {
+      const repo = new APIUserRepository()
+      const user: any = await repo.findById(id)
+      this.userData.id = user.id
+      this.userData.username = user.username
+      this.userData.first_name = user.first_name || ''
+      this.userData.last_name = user.last_name || ''
+      this.userData.email = user.email
+      this.userData.is_superuser = user.is_superuser || false
+    } catch (error) {
+      console.error('Error fetching user:', error)
+      this.errorMessage = 'Failed to load user information.'
+    }
+  },
+
   methods: {
-    async createUser() {
+    async updateUser() {
       if (!this.valid) return
 
       try {
-        this.errorMessage = '' // Clear any previous error message
-        const apiAuthRepository = new APIAuthRepository()
-        await apiAuthRepository.createUser(this.userData)
-        
-        this.showSuccess = true
-      } catch (error) {
-        console.error('Error creating user:', error.response ? error.response.data : error.message)
-        
-        // Extract specific error messages
-        if (error.response && error.response.data) {
-          const errorData = error.response.data;
-          
-          // Handle Django's password validation errors
-          if (errorData.password1) {
-            this.errorMessage = errorData.password1.join(', ');
-          } else if (errorData.password2) {
-            this.errorMessage = errorData.password2.join(', ');
-          } else if (errorData.non_field_errors) {
-            this.errorMessage = errorData.non_field_errors.join(', ');
-          } else if (typeof errorData === 'string') {
-            this.errorMessage = errorData;
-          } else {
-            // If we can't extract a specific message, use a more specific fallback
-            this.errorMessage = 'Database unavailable at the moment. Please try again later.';
-          }
-        } else {
-          this.errorMessage = 'Unable to connect to the server. Please try again later.';
+        this.errorMessage = ''
+        const payload: any = {
+          username: this.userData.username,
+          first_name: this.userData.first_name,
+          last_name: this.userData.last_name,
+          email: this.userData.email,
+          is_superuser: this.userData.is_superuser
         }
+        if (this.userData.password1) {
+          payload.password = this.userData.password1
+        }
+        await userService.updateUser(this.userData.id, payload)
+        this.showSuccess = true
+        // opcional redirect após delay
+        setTimeout(() => this.$router.push('/users'), 1000)
+      } catch (error) {
+        console.error('Error updating user:', error)
+        this.errorMessage = 'Database unavailable at the moment, please try again later.'
       }
     },
     goBack() {
@@ -228,7 +250,6 @@ export default Vue.extend({
   pointer-events: none;
 }
 
-/* Fade para o snackbar */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.4s ease;
@@ -254,4 +275,4 @@ export default Vue.extend({
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   pointer-events: none;
 }
-</style>
+</style> 

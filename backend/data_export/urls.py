@@ -10,6 +10,7 @@ from .views import (
     PerspectiveHistoryAPI,
     PerspectiveHistoryTableDataAPI,
     AnnotationHistoryPDFAPI,
+    PerspectiveHistoryPDFAPI,
 )
 
 urlpatterns = [
@@ -22,4 +23,5 @@ urlpatterns = [
     path(route="projects/<int:project_id>/perspective-history", view=PerspectiveHistoryAPI.as_view(), name="perspective-history"),
     path(route="projects/<int:project_id>/perspective-history-data", view=PerspectiveHistoryTableDataAPI.as_view(), name="perspective-history-data"),
     path(route="projects/<int:project_id>/annotation-history-pdf", view=AnnotationHistoryPDFAPI.as_view(), name="annotation-history-pdf"),
+    path(route="projects/<int:project_id>/perspectives-pdf", view=PerspectiveHistoryPDFAPI.as_view(), name="perspectives-pdf"),
 ]

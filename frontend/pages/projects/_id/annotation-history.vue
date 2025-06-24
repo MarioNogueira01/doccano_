@@ -25,12 +25,13 @@
         ></v-select>
 
         <v-spacer></v-spacer>
-        <v-btn color="primary" class="mr-2" :loading="loading"
-         :disabled="loading" @click="generateReport">
+        <v-btn color="primary" :loading="loading" :disabled="loading"
+         type="button" @click="generateReport">
           <v-icon left>mdi-file-document-outline</v-icon>
           Generate Report
         </v-btn>
-        <v-btn color="primary" outlined :disabled="!downloadReady" @click="showExportDialog = true">
+        <v-btn color="primary" outlined :disabled="!downloadReady" type="button"
+         @click="showExportDialog = true">
           <v-icon left>mdi-download</v-icon>
           Export Report
         </v-btn>
@@ -67,7 +68,7 @@
               </v-toolbar>
               <v-data-table
                 :headers="headers"
-                :items="annotations"
+                :items="filteredAnnotations"
                 :loading="loading"
                 class="elevation-1 mb-4"
               ></v-data-table>
@@ -84,15 +85,26 @@
                   Generate Perspectives
                 </v-btn>
                 <v-btn color="primary" outlined :disabled="
-                !perspectivesDownloadReady" @click="downloadPerspectivesReport">
+                !perspectivesDownloadReady" @click="showPerspectivesExportDialog = true">
                   <v-icon left>mdi-download</v-icon>
                   Export Perspectives
                 </v-btn>
               </v-card-title>
 
+              <v-row class="mb-2" align="center">
+                <v-col cols="12" sm="4" md="3">
+                  <v-select
+                    v-model="selectedPerspectiveAnswerType"
+                    :items="perspectiveAnswerTypes"
+                    label="Filter by Answer Type"
+                    dense
+                    outlined
+                  ></v-select>
+                </v-col>
+              </v-row>
               <v-data-table
                 :headers="perspectiveHeaders"
-                :items="perspectives"
+                :items="filteredPerspectives"
                 :loading="loadingPerspectives"
                 class="elevation-1"
               ></v-data-table>
@@ -127,7 +139,7 @@
         <v-card-text>
           <v-radio-group v-model="selectedExportFormat" class="mt-4">
             <v-radio label="PDF" value="pdf">
-              <template v-slot:label>
+              <template #label>
                 <div class="d-flex align-center">
                   <v-icon left color="red" class="mr-2">mdi-file-pdf-box</v-icon>
                   PDF Format
@@ -135,7 +147,7 @@
               </template>
             </v-radio>
             <v-radio label="CSV" value="csv">
-              <template v-slot:label>
+              <template #label>
                 <div class="d-flex align-center">
                   <v-icon left color="green" class="mr-2">mdi-file-excel</v-icon>
                   CSV Format
@@ -148,6 +160,44 @@
           <v-spacer></v-spacer>
           <v-btn text @click="showExportDialog = false">Cancel</v-btn>
           <v-btn color="primary" @click="handleExport">
+            <v-icon left>mdi-download</v-icon>
+            Export
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Perspectives Export Format Dialog -->
+    <v-dialog v-model="showPerspectivesExportDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-h5">
+          <v-icon left color="primary">mdi-download</v-icon>
+          Choose Export Format
+        </v-card-title>
+        <v-card-text>
+          <v-radio-group v-model="selectedPerspectivesExportFormat" class="mt-4">
+            <v-radio label="PDF" value="pdf">
+              <template #label>
+                <div class="d-flex align-center">
+                  <v-icon left color="red" class="mr-2">mdi-file-pdf-box</v-icon>
+                  PDF Format
+                </div>
+              </template>
+            </v-radio>
+            <v-radio label="CSV" value="csv">
+              <template #label>
+                <div class="d-flex align-center">
+                  <v-icon left color="green" class="mr-2">mdi-file-excel</v-icon>
+                  CSV Format
+                </div>
+              </template>
+            </v-radio>
+          </v-radio-group>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="showPerspectivesExportDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="handlePerspectivesExport">
             <v-icon left>mdi-download</v-icon>
             Export
           </v-btn>
@@ -203,12 +253,67 @@ export default {
       mdiMagnify,
       showExportDialog: false,
       selectedExportFormat: 'pdf',
+      showPerspectivesExportDialog: false,
+      selectedPerspectivesExportFormat: 'pdf',
+      selectedPerspectiveAnswerType: 'All',
+      perspectiveAnswerTypes: ['All', 'Yes/No', 'Number', 'Text'],
     };
   },
   computed: {
     projectId() {
       return this.$route.params.id
+    },
+    filteredAnnotations() {
+      if (!this.selectedAnnotationStatus || this.selectedAnnotationStatus === 'All') {
+        return this.annotations;
+      }
+      if (this.selectedAnnotationStatus === 'Finished') {
+        return this.annotations.filter(a => {
+          // Considera finished se tiver um valor em 'date' e não estiver "in progress"
+          return a.date && (!a.status || a.status === 'Finished');
+        });
+      }
+      if (this.selectedAnnotationStatus === 'In progress') {
+        return this.annotations.filter(a => {
+          // Considera in progress se não tiver status "Finished" ou "Not started"
+          return a.status === 'In progress' || (!a.status && !a.date && a.label);
+        });
+      }
+      if (this.selectedAnnotationStatus === 'Not started') {
+        return this.annotations.filter(a => {
+          // Considera not started se não tiver data nem label
+          return (!a.date || a.date === 'N/A') && (!a.label || a.label === 'N/A');
+        });
+      }
+      return this.annotations;
+    },
+    filteredPerspectives() {
+      if (this.selectedPerspectiveAnswerType === 'All') return this.perspectives;
+      if (this.selectedPerspectiveAnswerType === 'Yes/No') {
+        return this.perspectives.filter(p => {
+          const val = (p.answer || '').toLowerCase();
+          return val === 'yes' || val === 'no';
+        });
+      }
+      if (this.selectedPerspectiveAnswerType === 'Number') {
+        return this.perspectives.filter(p => !isNaN(Number(p.answer)) && p.answer !== '' && p.answer !== null);
+      }
+      if (this.selectedPerspectiveAnswerType === 'Text') {
+        return this.perspectives.filter(p => {
+          const val = (p.answer || '').toLowerCase();
+          return val !== 'yes' && val !== 'no' && isNaN(Number(p.answer));
+        });
+      }
+      return this.perspectives;
     }
+  },
+  created() {
+    this.fetchDatasetNames();
+    // this.fetchData(); // No longer calling fetchData directly on created
+  },
+  beforeDestroy() {
+    clearInterval(this.polling);
+    clearInterval(this.perspectivesPolling);
   },
   methods: {
     async fetchDatasetNames() {
@@ -262,7 +367,7 @@ export default {
         clearInterval(this.polling);
         this.polling = null;
       }
-      
+
       this.polling = setInterval(async () => {
         if (!this.taskId) {
           clearInterval(this.polling);
@@ -279,18 +384,18 @@ export default {
               clearInterval(this.polling);
               this.polling = null;
               this.loading = false;
-              
+
               // Fetch the actual data for the table
               const data = await this.$repositories.annotationHistory.fetch(
                 this.projectId,
                 this.taskId
               );
-              
+
               this.annotations = data.map(item => ({
                 ...item,
                 date: new Date(item.date).toLocaleString() // Format date
               }));
-              
+
               console.log("Fetched annotations:", this.annotations);
               this.downloadReady = true;
               this.$toasted.success('Annotations report generated successfully!');
@@ -316,7 +421,7 @@ export default {
         clearInterval(this.perspectivesPolling);
         this.perspectivesPolling = null;
       }
-      
+
       this.perspectivesPolling = setInterval(async () => {
         if (!this.perspectivesTaskId) {
           clearInterval(this.perspectivesPolling);
@@ -333,14 +438,14 @@ export default {
               clearInterval(this.perspectivesPolling);
               this.perspectivesPolling = null;
               this.loadingPerspectives = false;
-              
+
               // Fetch the actual data for the table
               const data = await this.$repositories.annotationHistory.fetch(
                 this.projectId,
                 this.perspectivesTaskId
               );
               console.log("Raw data fetched for perspectives:", data);
-              
+
               // Process only perspectives data
               const perspectivesData = data.reduce((acc, item, index) => {
                 let currentPerspectives = [];
@@ -348,7 +453,7 @@ export default {
 
                 // Ensure item.perspectives is a non-empty string before attempting JSON.parse
                 if (typeof item.perspectives === 'string') {
-                  if (item.perspectives.trim().length > 0) { 
+                  if (item.perspectives.trim().length > 0) {
                     try {
                       // Log the string before parsing
                       console.log(`Attempting to parse JSON string for item ${index}:`, item.perspectives);
@@ -379,7 +484,7 @@ export default {
                 }
                 return acc;
               }, []);
-              
+
               this.perspectives = perspectivesData;
               console.log("Fetched perspectives (after processing):", this.perspectives);
               this.perspectivesDownloadReady = true;
@@ -495,6 +600,16 @@ export default {
       this.generateReport();
     },
 
+    handleDatasetChange() {
+      // Regenerate report when dataset changes
+      this.generateReport();
+    },
+
+    handleAnnotationStatusChange() {
+      // Regenerate report when annotation status changes
+      this.generateReport();
+    },
+
     fetchData() {
       // This method was a placeholder. Now it will be called by pollTaskStatus
       // No longer needed for direct data fetching on created hook.
@@ -509,60 +624,91 @@ export default {
       }
     },
 
-    async exportPDF() {
+    async exportPDF(event) {
+      if (event && event.preventDefault) event.preventDefault();
       try {
-        // First, trigger the PDF generation task
-        const response = await this.$axios.get(
-          `/v1/projects/${this.projectId}/annotation-history-pdf`,
-          {
-            params: {
-              dataset_name: this.selectedDatasetName,
-              annotation_status: this.selectedAnnotationStatus
-            }
+        const JsPDF = await this.loadJsPDF()
+        const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const margin = 20
+        // Cabeçalho colorido
+        doc.setFillColor(63, 81, 181)
+        doc.rect(0, 0, pageWidth, 35, 'F')
+        // Título
+        doc.setFontSize(20)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text('Annotation History Report', pageWidth / 2, 20, { align: 'center' })
+        // Informações do projeto
+        doc.setFontSize(12)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'normal')
+        doc.text(`Project ID: ${this.projectId}`, margin, 30)
+        // Informações de geração
+        doc.setFillColor(255, 255, 255)
+        doc.rect(margin, 40, pageWidth - 2 * margin, 20, 'F')
+        doc.setFontSize(10)
+        doc.setTextColor(0, 0, 0)
+        doc.text(`Generated: ${new Date().toLocaleString()}`, margin + 5, 50)
+        doc.text(`Dataset: ${this.selectedDatasetName || 'All'} | Status: ${this.selectedAnnotationStatus || 'All'}`, margin + 5, 57)
+        // Estatísticas
+        const totalAnnotations = this.annotations.length
+        const uniqueAnnotators = [...new Set(this.annotations.map(a => a.annotator).filter(a => a !== 'N/A'))].length
+        doc.setFillColor(96, 125, 139)
+        doc.rect(margin, 65, pageWidth - 2 * margin, 15, 'F')
+        doc.setFontSize(11)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text(`Total Annotations: ${totalAnnotations} | Unique Annotators: ${uniqueAnnotators}`, margin + 5, 75)
+        // Tabela principal
+        doc.autoTable({
+          startY: 85,
+          head: [['Annotator', 'Label', 'Date', 'Example Text', 'Annotations']],
+          body: this.filteredAnnotations.map(item => [
+            item.annotator || 'N/A',
+            item.label || 'N/A',
+            item.date || 'N/A',
+            (item.example_text || 'N/A').substring(0, 40) + '...',
+            item.numberOfAnnotations || '0'
+          ]),
+          margin: { left: margin, right: margin },
+          theme: 'grid',
+          headStyles: { 
+            fillColor: [63, 81, 181], 
+            halign: 'center', 
+            textColor: 255,
+            fontSize: 10,
+            fontStyle: 'bold'
+          },
+          bodyStyles: { 
+            halign: 'left',
+            fontSize: 9
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245]
+          },
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 25 },
+            2: { cellWidth: 25 },
+            3: { cellWidth: 70 },
+            4: { cellWidth: 20, halign: 'center' }
           }
-        )
-
-        const taskId = response.data.task_id
-        let attempts = 0
-        const maxAttempts = 30 // 30 seconds timeout
-
-        // Poll for task completion
-        const pollInterval = setInterval(async () => {
-          try {
-            const statusResponse = await this.$axios.post(
-              `/v1/projects/${this.projectId}/annotation-history-pdf`,
-              { task_id: taskId }
-            )
-
-            if (statusResponse.data.status === 'processing') {
-              attempts++
-              if (attempts >= maxAttempts) {
-                clearInterval(pollInterval)
-                this.$toasted.error('PDF generation timed out')
-              }
-              return
-            }
-
-            // Task is complete, download the PDF
-            clearInterval(pollInterval)
-            const blob = new Blob([statusResponse.data], { type: 'application/pdf' })
-            const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.setAttribute('download', `annotation_history_${new Date().toISOString()}.pdf`)
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            window.URL.revokeObjectURL(url)
-            this.$toasted.success('PDF exported successfully!')
-          } catch (error) {
-            clearInterval(pollInterval)
-            console.error('Error polling PDF status:', error)
-            this.$toasted.error('Failed to export PDF')
-          }
-        }, 1000)
-      } catch (error) {
-        console.error('Error initiating PDF export:', error)
+        })
+        // Rodapé
+        const footerY = doc.internal.pageSize.getHeight() - 15
+        doc.setFillColor(96, 125, 139)
+        doc.rect(0, footerY, pageWidth, 15, 'F')
+        doc.setFontSize(8)
+        doc.setTextColor(255, 255, 255)
+        doc.text('Generated by Doccano', pageWidth / 2, footerY + 8, { align: 'center' })
+        // Gerar blob e abrir numa nova aba
+        const pdfBlob = doc.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+        this.$toasted.success('PDF opened in new tab!')
+      } catch (e) {
+        console.error('Failed to export annotation PDF', e)
         this.$toasted.error('Failed to export PDF')
       }
     },
@@ -589,7 +735,7 @@ export default {
           rows.push([]) // Empty row as separator
           rows.push(['Perspectives'])
           rows.push(['Question', 'Answer', 'Answered By', 'Answer Date'])
-          
+
           const perspectiveRows = this.perspectives.map(item => [
             item.question,
             item.answer,
@@ -618,21 +764,209 @@ export default {
         link.click()
         document.body.removeChild(link)
         window.URL.revokeObjectURL(url)
-        
+
         this.$toasted.success('CSV exported successfully!')
       } catch (error) {
         console.error('Error exporting CSV:', error)
         this.$toasted.error('Failed to export CSV')
       }
+    },
+
+    async handlePerspectivesExport() {
+      this.showPerspectivesExportDialog = false
+      if (this.selectedPerspectivesExportFormat === 'pdf') {
+        await this.exportPerspectivesPDF()
+      } else {
+        await this.exportPerspectivesCSV()
+      }
+    },
+
+    async loadJsPDF() {
+      if (window.jspdf && window.jspdf.jsPDF) {
+        if (!window.jspdf.jsPDF.API.autoTable) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
+            script.onload = resolve
+            script.onerror = reject
+            document.body.appendChild(script)
+          })
+        }
+        return window.jspdf.jsPDF
+      }
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.body.appendChild(script)
+      })
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.body.appendChild(script)
+      })
+      return window.jspdf.jsPDF
+    },
+
+    async exportPerspectivesPDF() {
+      if (window.event) window.event.preventDefault?.();
+      try {
+        const JsPDF = await this.loadJsPDF()
+        const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const pageHeight = doc.internal.pageSize.getHeight()
+        const margin = 20
+        // Cores
+        const primaryColor = [63, 81, 181] // Azul
+        const secondaryColor = [96, 125, 139] // Cinza azulado
+        // Cabeçalho
+        doc.setFillColor(...primaryColor)
+        doc.rect(0, 0, pageWidth, 40, 'F')
+        // Título principal
+        doc.setFontSize(24)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text('Perspectives Report', pageWidth / 2, 25, { align: 'center' })
+        // Informações do projeto
+        doc.setFontSize(12)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'normal')
+        doc.text(`Project ID: ${this.projectId}`, margin, 35)
+        // Informações de geração
+        doc.setFillColor(255, 255, 255)
+        doc.rect(margin, 45, pageWidth - 2 * margin, 25, 'F')
+        doc.setFontSize(10)
+        doc.setTextColor(0, 0, 0)
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, margin + 5, 55)
+        doc.text(`Dataset: ${this.selectedDatasetName || 'All datasets'}`, margin + 5, 62)
+        doc.text(`Annotation Status: ${this.selectedAnnotationStatus || 'All'}`, margin + 5, 69)
+        // Estatísticas
+        const totalPerspectives = this.perspectives.length
+        const uniquePerspectiveQuestions = [...new Set(this.perspectives.map(p => p.question).filter(q => q !== 'N/A'))].length
+        const uniquePerspectiveAnswers = [...new Set(this.perspectives.map(p => p.answer).filter(a => a !== 'N/A'))].length
+        // Box de estatísticas
+        const statsY = 80
+        doc.setFillColor(...secondaryColor)
+        doc.rect(margin, statsY, pageWidth - 2 * margin, 20, 'F')
+        doc.setFontSize(12)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'bold')
+        doc.text('Statistics', margin + 5, statsY + 8)
+        doc.setFontSize(10)
+        doc.setFont(undefined, 'normal')
+        doc.text(`Total Perspectives: ${totalPerspectives}`, margin + 5, statsY + 15)
+        doc.text(`Unique Perspective Questions: ${uniquePerspectiveQuestions}`, margin + 120, statsY + 15)
+        doc.text(`Unique Perspective Answers: ${uniquePerspectiveAnswers}`, margin + 235, statsY + 15)
+        // Tabela de perspectives
+        const tableY = statsY + 30
+        doc.autoTable({
+          startY: tableY,
+          head: [[
+            'Perspective Question',
+            'Perspective Answer',
+            'Answered By',
+            'Answer Date'
+          ]],
+          body: this.perspectives.map(item => [
+            (item.question || 'N/A').substring(0, 40) + (item.question && item.question.length > 40 ? '...' : ''),
+            (item.answer || 'N/A').substring(0, 30) + (item.answer && item.answer.length > 30 ? '...' : ''),
+            item.answered_by || 'N/A',
+            item.answer_date || 'N/A'
+          ]),
+          margin: { left: margin, right: margin },
+          theme: 'grid',
+          headStyles: { 
+            fillColor: primaryColor, 
+            halign: 'center', 
+            valign: 'middle', 
+            textColor: 255,
+            fontSize: 10,
+            fontStyle: 'bold'
+          },
+          bodyStyles: { 
+            halign: 'left',
+            fontSize: 9,
+            textColor: 0
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245]
+          },
+          styles: { 
+            fontSize: 9,
+            cellPadding: 3
+          },
+          columnStyles: {
+            0: { cellWidth: 50 }, // Question
+            1: { cellWidth: 40 }, // Answer
+            2: { cellWidth: 30 }, // Answered By
+            3: { cellWidth: 35 }  // Answer Date
+          }
+        })
+        // Rodapé
+        const footerY = pageHeight - 20
+        doc.setFillColor(...secondaryColor)
+        doc.rect(0, footerY, pageWidth, 20, 'F')
+        doc.setFontSize(8)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont(undefined, 'normal')
+        doc.text('Generated by Doccano Annotation Platform', pageWidth / 2, footerY + 8, { align: 'center' })
+        doc.text(`Page 1 of 1`, pageWidth - margin, footerY + 8, { align: 'right' })
+        // Gerar blob e abrir numa nova aba
+        const pdfBlob = doc.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+        this.$toasted.success('PDF opened in new tab!')
+      } catch (e) {
+        console.error('Failed to export perspectives PDF', e)
+        this.$toasted.error('Failed to export perspectives PDF')
+      }
+    },
+
+    exportPerspectivesCSV() {
+      try {
+        const delimiter = ';'
+        const rows = [
+          ['Perspective Question', 'Perspective Answer', 'Answered By', 'Answer Date']
+        ]
+
+        // Add perspectives data
+        const perspectiveRows = this.perspectives.map(item => [
+          item.question,
+          item.answer,
+          item.answered_by,
+          item.answer_date
+        ])
+        rows.push(...perspectiveRows)
+
+        const csvContent = '\uFEFF' + // UTF-8 BOM for better compatibility (Excel)
+          rows
+            .map(r => r.map(item => {
+              const field = String(item)
+              const needsQuotes = field.includes(delimiter) || field.includes('"') || field.includes('\n')
+              const escaped = field.replace(/"/g, '""')
+              return needsQuotes ? `"${escaped}"` : escaped
+            }).join(delimiter))
+            .join('\r\n')
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `project-${this.projectId}-perspectives-report.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+
+        this.$toasted.success('Perspectives CSV exported successfully!')
+      } catch (error) {
+        console.error('Error exporting perspectives CSV:', error)
+        this.$toasted.error('Failed to export perspectives CSV')
+      }
     }
-  },
-  created() {
-    this.fetchDatasetNames();
-    // this.fetchData(); // No longer calling fetchData directly on created
-  },
-  beforeDestroy() {
-    clearInterval(this.polling);
-    clearInterval(this.perspectivesPolling);
   },
 };
 </script>
