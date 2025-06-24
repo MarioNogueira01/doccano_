@@ -6,7 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="a484398d-3529-417b-a5fd-e173368e4a6d" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/data_export/celery_tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/data_export/celery_tasks.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/data_export/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/data_export/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/projects/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/projects/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/pages/projects/_id/annotation-history.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/pages/projects/_id/annotation-history.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/pages/projects/_id/perspectives/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/pages/projects/_id/perspectives/index.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -108,9 +112,7 @@
       <workItem from="1750692570715" duration="1859000" />
       <workItem from="1750694857583" duration="2946000" />
       <workItem from="1750700496737" duration="4320000" />
-      <workItem from="1750759134694" duration="1085000" />
-      <workItem from="1750760837563" duration="950000" />
-      <workItem from="1750770058326" duration="322000" />
+      <workItem from="1750759134694" duration="713000" />
     </task>
     <servers />
   </component>

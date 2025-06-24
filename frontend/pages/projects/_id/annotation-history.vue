@@ -729,7 +729,7 @@ export default {
           styles: { fontSize: 9 }
         })
         doc.save(`annotation_history_${new Date().toISOString()}.pdf`)
-            this.$toasted.success('PDF exported successfully!')
+        this.$toasted.success('PDF exported successfully!')
       } catch (e) {
         console.error('Failed to export annotation PDF', e)
         this.$toasted.error('Failed to export PDF')
@@ -921,7 +921,7 @@ export default {
         try {
           const res = await this.$axios.get(`/v1/projects/${this.projectId}/discrepancy-history-data`, {
             params: { taskId: this.discrepancyTaskId },
-            validateStatus: () => true // Aceita todos os status, removido 'status' não usado
+            validateStatus: _ => true // Aceita todos os status
           });
           if (res.status === 202 || (res.data && res.data.status === 'Not ready')) {
             // Ainda não está pronto, continua polling
