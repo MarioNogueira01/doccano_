@@ -595,104 +595,181 @@ export default {
       this.generatingCSV = true
       try {
         const delimiter = ';'
-        const rows = [
-          ['ID', 'Text', 'Status', 'Label Distribution']
-        ]
-
-        // Add all entries to the CSV
+        const rows = []
+        
+        // Add report header with project information
+        rows.push(['='.repeat(80)])
+        rows.push(['DATASET ANNOTATION DISTRIBUTION REPORT'])
+        rows.push(['='.repeat(80)])
+        rows.push([])
+        
+        // Project information section
+        rows.push(['PROJECT INFORMATION'])
+        rows.push(['-'.repeat(40)])
+        rows.push(['Project ID', this.projectId])
+        rows.push(['Project Name', this.project?.name || 'N/A'])
+        rows.push(['Project Type', this.project?.projectType || 'N/A'])
+        rows.push(['Generated On', new Date().toLocaleString()])
+        rows.push([])
+        
+        // Statistics section with percentages
+        const totalEntries = this.datasetStats.total
+        const annotatedEntries = this.datasetStats.annotated
+        const unannotatedEntries = this.datasetStats.unannotated
+        const annotationRate = totalEntries > 0 ? ((annotatedEntries / totalEntries) * 100).toFixed(2) : '0.00'
+        
+        rows.push(['DATASET STATISTICS'])
+        rows.push(['-'.repeat(40)])
+        rows.push(['Metric', 'Count', 'Percentage'])
+        rows.push(['Total Documents', totalEntries, '100.00%'])
+        rows.push(['Annotated Documents', annotatedEntries, `${annotationRate}%`])
+        rows.push(['Unannotated Documents', unannotatedEntries, `${((unannotatedEntries / totalEntries) * 100).toFixed(2)}%`])
+        rows.push(['Annotation Rate', annotationRate + '%', ''])
+        rows.push([])
+        
+        // Perspective filters section (if any applied)
+        if (Object.keys(this.selectedPerspectiveAnswers).length > 0) {
+          rows.push(['APPLIED PERSPECTIVE FILTERS'])
+          rows.push(['-'.repeat(40)])
+          rows.push(['Question ID', 'Filter Value'])
+          
+          for (const [questionId, value] of Object.entries(this.selectedPerspectiveAnswers)) {
+            if (value) {
+              const values = Array.isArray(value) ? value : [value]
+              for (const val of values) {
+                rows.push([questionId, val])
+              }
+            }
+          }
+          rows.push([])
+        }
+        
+        // Global label distribution sections
+        if (Object.keys(this.labelDistribution).length > 0) {
+          rows.push(['GLOBAL LABEL DISTRIBUTION'])
+          rows.push(['-'.repeat(40)])
+          
+          // Category distribution only
+          if (Object.keys(this.labelDistribution.categories).length > 0) {
+            rows.push(['CATEGORY DISTRIBUTION'])
+            rows.push(['Label', 'Count', 'Percentage'])
+            
+            const categoryTotal = 
+            Object.values(this.labelDistribution.categories).reduce((sum, count) => sum + count, 0)
+            for (const [label, count] of Object.entries(this.labelDistribution.categories)) {
+              const percentage = categoryTotal > 0 ? ((count / categoryTotal) * 100).toFixed(2) : '0.00'
+              rows.push([label, count, `${percentage}%`])
+            }
+            rows.push([])
+          }
+        }
+        
+        // Label types information
+        if (this.labelTypes.categories.length > 0) {
+          rows.push(['LABEL TYPES CONFIGURATION'])
+          rows.push(['-'.repeat(40)])
+          
+          rows.push(['CATEGORY LABEL TYPES'])
+          rows.push(['Label Name', 'Background Color', 'Text Color'])
+          this.labelTypes.categories.forEach(category => {
+            rows.push([category.text, category.backgroundColor || 'N/A', category.textColor || 'N/A'])
+          })
+          rows.push([])
+        }
+        
+        // Document-wise detailed information
+        rows.push(['DOCUMENT-WISE ANNOTATION DETAILS'])
+        rows.push(['-'.repeat(40)])
+        rows.push(['Document ID', 'Text Preview', 'Status', 'Category Count', 'Label Distribution', 'Annotation Details'])
+        
+        // Add all entries to the CSV with enhanced information
         this.datasetStats.entries.forEach(entry => {
           const labelDistribution = entry.labelDistribution || {}
-          const labels = Object.entries(labelDistribution)
+          const categoryCount = entry.categoryCount || 0
+          
+          // Format label distribution for better readability
+          const labelDistributionFormatted = Object.entries(labelDistribution)
             .map(([label, count]) => `${label}: ${count}`)
-            .join(', ')
+            .join(' | ')
+          
+          // Get detailed annotation information with proper error handling
+          let annotationDetails = 'No annotations'
+          try {
+            const annotations = this.documentAnnotations[entry.id]
+            if (annotations && Array.isArray(annotations) && annotations.length > 0) {
+              const uniqueUsers = new Set(
+                annotations.map(a => a.user?.username || 'Unknown')
+              ).size
+              annotationDetails = `${annotations.length} annotation(s) by ${uniqueUsers} user(s)`
+            }
+          } catch (annotationError) {
+            console.warn(`Error processing annotations for document ${entry.id}:`, annotationError)
+            annotationDetails = 'Error processing annotations'
+          }
+          
+          // Truncate text for better CSV readability
+          const textPreview = entry.text 
+            ? (entry.text.length > 100 
+                ? entry.text.substring(0, 100) + '...' 
+                : entry.text)
+            : 'No text'
           
           rows.push([
             entry.id,
-            entry.text,
+            textPreview,
             entry.annotated ? 'Annotated' : 'Pending',
-            labels || 'No Labels'
+            categoryCount,
+            labelDistributionFormatted || 'No Labels',
+            annotationDetails
           ])
         })
+        
+        // Add summary footer
+        rows.push([])
+        rows.push(['='.repeat(80)])
+        rows.push(['REPORT SUMMARY'])
+        rows.push(['='.repeat(80)])
+        rows.push(['Total Documents Analyzed', totalEntries])
+        rows.push(['Documents with Annotations', annotatedEntries])
+        rows.push(['Documents Pending Annotation', unannotatedEntries])
+        rows.push(['Overall Annotation Progress', `${annotationRate}%`])
+        rows.push(['Report Generated', new Date().toLocaleString()])
+        rows.push(['Generated By', this.getUsername || 'Unknown User'])
+        rows.push(['='.repeat(80)])
 
-        // Add statistics section
-        rows.push([]) // Empty row for separation
-        rows.push(['Dataset Statistics'])
-        rows.push(['Total Entries', this.datasetStats.total])
-        rows.push(['Annotated Entries', this.datasetStats.annotated])
-        rows.push(['Unannotated Entries', this.datasetStats.unannotated])
-        rows.push(['Annotation Rate', `${((this.datasetStats.annotated / this.datasetStats.total) * 100).toFixed(2)}%`])
-
-        // Add label type statistics if available
-        if (this.labelTypes.categories.length > 0) {
-          rows.push([])
-          rows.push(['Category Label Types'])
-          this.labelTypes.categories.forEach(category => {
-            rows.push([category.text, category.backgroundColor])
-          })
-        }
-
-        if (this.labelTypes.spans.length > 0) {
-          rows.push([])
-          rows.push(['Span Label Types'])
-          this.labelTypes.spans.forEach(span => {
-            rows.push([span.text, span.backgroundColor])
-          })
-        }
-
-        if (this.labelTypes.relations.length > 0) {
-          rows.push([])
-          rows.push(['Relation Label Types'])
-          this.labelTypes.relations.forEach(relation => {
-            rows.push([relation.text, relation.backgroundColor])
-          })
-        }
-
-        // Add global label distribution if available
-        if (Object.keys(this.labelDistribution).length > 0) {
-          rows.push([])
-          rows.push(['Global Label Distribution'])
-          
-          if (Object.keys(this.labelDistribution.categories).length > 0) {
-            rows.push(['Category Distribution'])
-            Object.entries(this.labelDistribution.categories).forEach(([label, count]) => {
-              rows.push([label, count])
-            })
-          }
-
-          if (Object.keys(this.labelDistribution.spans).length > 0) {
-            rows.push(['Span Distribution'])
-            Object.entries(this.labelDistribution.spans).forEach(([label, count]) => {
-              rows.push([label, count])
-            })
-          }
-
-          if (Object.keys(this.labelDistribution.relations).length > 0) {
-            rows.push(['Relation Distribution'])
-            Object.entries(this.labelDistribution.relations).forEach(([label, count]) => {
-              rows.push([label, count])
-            })
-          }
-        }
-
-        const csvContent = '\uFEFF' + // UTF-8 BOM for better compatibility (Excel)
+        // Create CSV content with UTF-8 BOM for better Excel compatibility
+        const csvContent = '\uFEFF' + // UTF-8 BOM
           rows
             .map(r => r.map(item => {
-              const field = String(item)
-              const needsQuotes = field.includes(delimiter) || field.includes('"') || field.includes('\n')
+              const field = String(item || '')
+              const needsQuotes = field.includes(delimiter) || 
+                field.includes('"') || 
+                field.includes('\n') || 
+                field.includes(',')
               const escaped = field.replace(/"/g, '""')
               return needsQuotes ? `"${escaped}"` : escaped
             }).join(delimiter))
             .join('\r\n')
 
+        // Create and download the file
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
         const blobUrl = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = blobUrl
-        link.setAttribute('download', `dataset-report-${this.projectId}-${new Date().toISOString()}.csv`)
+        
+        // Create a more descriptive filename
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
+        const projectName = this.project?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'project'
+        const filename = `annotation-distribution-${projectName}-${timestamp}.csv`
+        link.setAttribute('download', filename)
+        
         document.body.appendChild(link)
         link.click()
         link.remove()
         window.URL.revokeObjectURL(blobUrl)
+        
+        // Show success message
+        console.log('CSV report generated successfully!')
       } catch (error) {
         console.error('Error generating CSV report:', error)
         this.errorMessage = 'Failed to generate CSV report'
