@@ -105,6 +105,7 @@
         :project-id="projectId"
         :session-id="historySessionId"
         :question-index="historyQuestionIndex"
+        :read-only="true"
       />
     </v-dialog>
   </v-card>

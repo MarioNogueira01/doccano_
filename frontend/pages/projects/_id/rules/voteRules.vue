@@ -19,6 +19,7 @@
             :session-id="session.id"
             :question-index="0"
             @critical-error="handleCriticalError"
+            @error="handleChatError"
           />
         </v-expansion-panel-content>
       </v-expansion-panel>
@@ -284,6 +285,15 @@ export default {
       } else {
         this.errorMessage = error.message || 'An error occurred while processing your request.';
       }
+      
+      // Auto-clear after 5 seconds
+      setTimeout(() => {
+        this.errorMessage = '';
+      }, 5000);
+    },
+
+    handleChatError(errorMessage) {
+      this.errorMessage = errorMessage;
       
       // Auto-clear after 5 seconds
       setTimeout(() => {
