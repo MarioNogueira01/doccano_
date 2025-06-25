@@ -39,6 +39,30 @@ class Me(APIView):
         serializer = UserSerializer(request.user, context={"request": request})
         return Response(serializer.data)
 
+    def patch(self, request, *args, **kwargs):
+        """Permite que o próprio utilizador atualize parcialmente os seus dados."""
+        serializer = UserSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    # Para PUT completo (opcional)
+    def put(self, request, *args, **kwargs):
+        serializer = UserSerializer(
+            request.user,
+            data=request.data,
+            partial=False,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
 class Users(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -74,11 +98,29 @@ class UserCreation(generics.CreateAPIView):
 class UserDetail(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated & IsAdminUser]
+    permission_classes = [IsAuthenticated]
     lookup_field = 'id'
+
+    def _is_owner_or_admin(self, obj, user):
+        return user.is_staff or obj == user
+
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not self._is_owner_or_admin(obj, request.user):
+            return Response({'detail': 'You do not have permission to update this user.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not self._is_owner_or_admin(obj, request.user):
+            return Response({'detail': 'You do not have permission to update this user.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().partial_update(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         user = self.get_object()
+
+        if not self._is_owner_or_admin(user, request.user):
+            return Response({'detail': 'You do not have permission to delete this user.'}, status=status.HTTP_403_FORBIDDEN)
 
         if Project.objects.filter(created_by=user).exists():
             return Response(

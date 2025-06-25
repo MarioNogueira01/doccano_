@@ -40,7 +40,9 @@
         small
         class="mr-2 hoverable"
         :title="$t('generic.edit') || 'Edit'"
-        @click="goEdit(item.id)"
+        :disabled="!canEditUser(item)"
+        :style="!canEditUser(item) ? 'opacity:0.3;pointer-events:none;cursor:not-allowed' : ''"
+        @click="canEditUser(item) && goEdit(item.id)"
       >{{ mdiPencil }}</v-icon>
     </template>
   </v-data-table>
@@ -50,6 +52,7 @@
 import { mdiMagnify, mdiPencil } from '@mdi/js'
 import { dateFormat } from '@vuejs-community/vue-filter-date-format'
 import { dateParse } from '@vuejs-community/vue-filter-date-parse'
+import { mapGetters } from 'vuex'
 import type { PropType } from 'vue'
 import Vue from 'vue'
 import { UserItem } from '~/domain/models/user/user'
@@ -81,6 +84,7 @@ export default Vue.extend({
   },
 
   computed: {
+    ...mapGetters('auth', ['isStaff', 'getUserId']),
     headers() {
       return [
         { text: this.$t('username'), value: 'username', sortable: true },
@@ -115,6 +119,10 @@ export default Vue.extend({
     updateOptions(options) {
       this.sortBy = options.sortBy[0] || 'username';
       this.sortDesc = options.sortDesc[0] || false;
+    },
+    canEditUser(item) {
+      // Só pode editar se for admin ou o próprio user
+      return this.isStaff || item.id === this.getUserId
     }
   }
 })
