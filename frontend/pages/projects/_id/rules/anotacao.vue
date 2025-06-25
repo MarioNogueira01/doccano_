@@ -1,7 +1,7 @@
 <template>
   <v-card>
     <v-card-title class="align-center flex-wrap">
-      <h2 class="text-h6 mb-4 mb-md-0 me-md-4">Relatório de Anotações</h2>
+      <h2 class="text-h6 mb-4 mb-md-0 me-md-4">Annotation Report</h2>
 
       <!-- Select Dataset -->
       <v-select
@@ -35,7 +35,7 @@
       <v-select
         v-model="selectedAgreement"
         :items="agreementOptions"
-        label="Acordo"
+        label="Agreement"
         dense
         hide-details
         clearable
@@ -51,15 +51,15 @@
         class="me-2"
         @click.prevent="generateReport"
       >
-        Gerar Relatório
+        Generate Report
       </v-btn>
 
       <!-- Export buttons -->
       <v-btn color="primary" outlined class="me-2" @click="exportCSV">
-        Exportar CSV
+        Export CSV
       </v-btn>
       <v-btn color="primary" outlined @click="exportPDF">
-        Exportar PDF
+        Export PDF
       </v-btn>
     </v-card-title>
 
@@ -67,7 +67,7 @@
       <v-expansion-panels flat>
         <v-expansion-panel>
           <v-expansion-panel-header>
-            Filtrar por Perspectiva
+            Perspective
             <template #actions>
               <v-icon color="primary">
                 mdi-filter-variant
@@ -142,7 +142,7 @@
         <template #top>
           <v-text-field
             v-model="search"
-            label="Pesquisar"
+            label="Search"
             class="mx-4"
           />
         </template>
@@ -176,8 +176,8 @@ export default {
       tableHeaders: [
         { text: 'Dataset', value: 'dataset' },
         { text: 'Labels', value: 'label' },
-        { text: 'Nº de Votos', value: 'votes' },
-        { text: 'Acordo', value: 'agreement' }
+        { text: 'Nº Votes', value: 'votes' },
+        { text: 'Agreement', value: 'agreement' }
       ]
     }
   },

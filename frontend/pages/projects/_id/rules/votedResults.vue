@@ -1,7 +1,7 @@
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      <span>Resultados das Votações</span>
+      <span>Results</span>
       <v-spacer></v-spacer>
       <v-select
         v-model="selectedSession"
@@ -55,12 +55,12 @@
           <div class="participation-icons">
             <span class="participation-item voted">
               <v-icon small color="success">mdi-checkbox-marked-circle</v-icon>
-              <span class="label">Membros que Votaram:</span>
+              <span class="label">✓:</span>
               <span class="count">{{ item.votersCount }}</span>
             </span>
             <span class="participation-item not-voted">
               <v-icon small color="error">mdi-close-circle</v-icon>
-              <span class="label">Membros que Não Votaram:</span>
+              <span class="label">X:</span>
               <span class="count">{{ item.nonVotersCount }}</span>
             </span>
           </div>
@@ -128,10 +128,10 @@ export default {
       selectedSession: 'all',
       totalMembers: 0,
       headers: [
-        { text: 'Sessão', value: 'session' },
-        { text: 'Regra', value: 'question' },
-        { text: 'Votos', value: 'votes' },
-        { text: 'Participação', value: 'participation' },
+        { text: 'Session', value: 'session' },
+        { text: 'Rule', value: 'question' },
+        { text: 'Votes', value: 'votes' },
+        { text: 'Participation', value: 'participation' },
         { text: 'History', value: 'history', sortable: false },
       ],
       dialogHistory: false,
