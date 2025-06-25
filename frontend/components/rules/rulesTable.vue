@@ -15,28 +15,19 @@
           <tr 
             v-for="(item, index) in filteredItem" 
             :key="index" 
-            class="border-b bg-yellow-100"
+            class="border-b"
           >
             <td class="px-4 py-3 font-medium text-grey-900">
               {{ item.regra.length > 80 ? item.regra.slice(0, 80) + '...' : item.regra }}
             </td>
             <td class="px-4 py-3">
-              <span
-                v-if="item.color"
-                class="color-circle"
-                :style="{
-                  backgroundColor: item.color,
-                  borderColor: '#0062B1'
-                }"
-              ></span>
               <button 
                 class="bg-red-600 text-white w-10 h-10 flex items-center justify-center 
                 rounded-full font-bold shadow-md transition duration-150 hover:bg-red-700"
                 @click="openAcaoOverlay(item)"
               >
-                
+                ACTIONS
               </button>
-              <span class="ml-2 font-semibold text-gray-700">Actions</span>
             </td>
           </tr>
         </tbody>
@@ -146,15 +137,3 @@ const confirmEdit = () => {
   showAcao.value = false;
 };
 </script>
-
-<style scoped>
-.color-circle {
-  display: inline-block;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid #0062B1;
-  margin-right: 10px;
-  vertical-align: middle;
-}
-</style>
