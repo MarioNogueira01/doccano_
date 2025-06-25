@@ -14,6 +14,7 @@ from .models import (
     PerspectiveGroup,
     Perspective,
     PerspectiveAnswer,
+    RuleDiscussionMessage,
 )
 
 
@@ -58,4 +59,5 @@ admin.site.register(Tag, TagAdmin)
 admin.site.register(PerspectiveGroup)
 admin.site.register(Perspective)
 admin.site.register(PerspectiveAnswer)
+admin.site.register(RuleDiscussionMessage)
 

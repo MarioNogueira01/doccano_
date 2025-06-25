@@ -18,12 +18,29 @@ export class APIAnnotationRepository {
     userId: string | number
   ): Promise<AnnotationItem[]> {
     const url = `/projects/${projectId}/annotations?doc_id=${documentId}&user_id=${userId}`;
+    console.log(`Calling annotation API: ${url}`);
     try {
       const response = await this.request.get(url);
-      console.log(`Annotation response for user ${userId}:`, response.data);
-      return response.data.annotations || [];
-    } catch (error) {
+      console.log(`Raw annotation response for user ${userId}:`, response);
+      console.log(`Response data:`, response.data);
+      
+      // Handle different response formats
+      if (response.data && response.data.annotations) {
+        console.log(`Found annotations in response.data.annotations:`, response.data.annotations);
+        return response.data.annotations;
+      } else if (Array.isArray(response.data)) {
+        console.log(`Found annotations as direct array:`, response.data);
+        return response.data;
+      } else if (response.data && Array.isArray(response.data.results)) {
+        console.log(`Found annotations in response.data.results:`, response.data.results);
+        return response.data.results;
+      } else {
+        console.warn(`Unexpected response format for user ${userId}:`, response.data);
+        return [];
+      }
+    } catch (error: any) {
       console.error(`Error fetching annotations for user ${userId}:`, error);
+      console.error(`Error details:`, error.response?.data);
       return [];
     }
   }

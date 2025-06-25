@@ -26,22 +26,42 @@
       </div>
 
       <v-divider></v-divider>
-
-      <v-text-field
-        v-model="text"
-        dense
-        hide-details
-        placeholder="Escreva uma mensagem..."
-        @keyup.enter="send"
-      ></v-text-field>
-      <v-btn small color="primary" @click="send">Enviar</v-btn>
+      
+      <!-- Read-only mode alert -->
+      <v-alert v-if="readOnly" type="info" dense text>
+        Chat em modo de leitura.
+      </v-alert>
+      
+      <!-- Message input area - only show if not read-only -->
+      <div v-if="!readOnly" class="d-flex align-center mt-2">
+        <v-text-field
+          v-model="newMessage"
+          label="Digite sua mensagem..."
+          outlined
+          dense
+          hide-details
+          class="flex-grow-1 mr-2"
+          :disabled="loading"
+          @keyup.enter="sendMessage"
+        />
+        <v-btn
+          color="primary"
+          :disabled="!newMessage.trim() || loading"
+          :loading="loading"
+          @click="sendMessage"
+        >
+          Enviar
+        </v-btn>
+      </div>
     </v-card>
 
+    <!-- Snackbar moved outside the card to ensure visibility -->
     <v-snackbar
       v-model="snackbar"
       :color="snackbarColor"
       timeout="5000"
       top
+      :value="snackbar"
     >
       {{ snackbarText }}
       <template #action="{ attrs }">
@@ -64,11 +84,12 @@ export default {
     projectId: { type: [String, Number], required: true },
     sessionId: { type: [String, Number], required: true },
     questionIndex: { type: Number, required: true },
+    readOnly: { type: Boolean, default: false }
   },
   data() {
     return {
       messages: [],
-      text: '',
+      newMessage: '',
       loading: false,
       snackbar: false,
       snackbarText: '',
@@ -98,43 +119,69 @@ export default {
         this.loading = false
       }
     },
-    async send() {
-      if (!this.text.trim()) return
+    async sendMessage() {
+      if (!this.newMessage.trim()) return
+      
+      const messageText = this.newMessage.trim()
+      this.newMessage = ''
+      this.loading = true
+      
       try {
-        await this.$services.ruleDiscussion.create(
+        const newMsg = await this.$services.ruleDiscussion.create(
           this.projectId,
           this.sessionId,
           this.questionIndex,
-          this.text.trim()
+          messageText
         )
-        this.text = ''
-        await this.fetchMessages()
+        
+        // Add the new message to the list
+        this.messages.push(newMsg)
+        
+        // Scroll to bottom to show the new message
+        this.$nextTick(() => {
+          this.scrollToBottom()
+        })
+        
+        this.showSuccess('Mensagem enviada com sucesso!')
       } catch (e) {
         console.error('Erro ao enviar mensagem', e)
-        if (e.response && e.response.status === 503) {
-          // Emit event to parent page for critical errors
-          this.$emit('critical-error', {
-            code: 503,
-            message: 'Serviço indisponível. O servidor está temporariamente fora do ar.'
-          })
-        } else {
-          // Handle non-critical errors locally with snackbar
-          this.showError('Erro ao enviar mensagem. Por favor, tente novamente mais tarde.')
+        console.error('Error response:', e.response)
+        console.error('Error status:', e.response?.status)
+        
+        // Handle database unavailable error (503)
+        let errorMessage = 'Erro ao enviar mensagem. Por favor, tente novamente.'
+        
+        if (!e.response || (e.response.status && e.response.status >= 500)) {
+          errorMessage = 'Database unavailable at the moment, please try again later.'
         }
+        
+        console.log('About to show error:', errorMessage)
+        
+        // Emit error to parent component for display at page level
+        this.$emit('error', errorMessage)
+        
+        // Also try to show locally
+        this.showError(errorMessage)
+        
+        // Restore the message text if sending failed
+        this.newMessage = messageText
+      } finally {
+        this.loading = false
       }
     },
     showError(message) {
+      console.log('showError called with:', message)
       this.snackbarText = message
       this.snackbarColor = 'error'
       this.snackbar = true
-      // Force update in case there's a reactivity issue
-      this.$nextTick(() => {
-        setTimeout(() => {
-          if (!this.snackbar) {
-            this.snackbar = true
-          }
-        }, 100)
-      })
+      console.log('snackbar state:', this.snackbar, this.snackbarText, this.snackbarColor)
+    },
+    showSuccess(message) {
+      console.log('showSuccess called with:', message)
+      this.snackbarText = message
+      this.snackbarColor = 'success'
+      this.snackbar = true
+      console.log('snackbar state:', this.snackbar, this.snackbarText, this.snackbarColor)
     },
     scrollToBottom() {
       const el = this.$refs.chatWindow

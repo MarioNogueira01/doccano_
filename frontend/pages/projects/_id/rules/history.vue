@@ -30,6 +30,7 @@
         :project-id="projectId"
         :session-id="selectedSession"
         :question-index="currentQuestionIndex"
+        :read-only="true"
       />
     </v-dialog>
   </v-card>

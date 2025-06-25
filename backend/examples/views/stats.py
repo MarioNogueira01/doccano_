@@ -176,18 +176,18 @@ class LabelVoteHistoryView(APIView):
             cumulative[cat.label_id] = cumulative.get(cat.label_id, 0) + 1
 
             if add_all_versions:
-                results.append(self._snapshot_obj(version_counter, cumulative, label_text_map))
+                results.append(self._snapshot_obj(version_counter, cumulative, label_text_map, cat.user.username))
 
         if not add_all_versions:
-            results.append(self._snapshot_obj(version_counter, cumulative, label_text_map))
+            results.append(self._snapshot_obj(version_counter, cumulative, label_text_map, cat.user.username))
 
         return Response(results)
 
     @staticmethod
-    def _snapshot_obj(version: int, cum_dict: dict, label_map: dict):
+    def _snapshot_obj(version: int, cum_dict: dict, label_map: dict, annotator: str):
         labels = []
         votes = []
         for lid, cnt in cum_dict.items():
             labels.append(label_map.get(lid, str(lid)))
             votes.append(cnt)
-        return {"version": version, "labels": labels, "votes": votes} 
+        return {"version": version, "labels": labels, "votes": votes, "annotator": annotator} 

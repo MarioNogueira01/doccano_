@@ -205,8 +205,8 @@ export default Vue.extend({
         }
         await userService.updateUser(this.userData.id, payload)
         this.showSuccess = true
-        // opcional redirect após delay
-        setTimeout(() => this.$router.push('/users'), 1000)
+        // Se o user editou o próprio perfil, forçar logout/redirecionar para login
+        setTimeout(() => this.$router.push('/auth'), 1000)
       } catch (error) {
         console.error('Error updating user:', error)
         this.errorMessage = 'Database unavailable at the moment, please try again later.'

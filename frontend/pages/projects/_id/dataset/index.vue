@@ -14,7 +14,7 @@
         @download="$router.push('dataset/export')"
         @assign="dialogAssignment = true"
         @reset="dialogReset = true"
-        @compare="dialogCompareForm = true"
+        @compare="handleCompareClick"
       />
       <v-btn
         class="text-capitalize ms-2"
@@ -66,15 +66,15 @@
       <v-dialog v-model="dialogReset">
         <form-reset-assignment @cancel="dialogReset = false" @reset="resetAssignment" />
       </v-dialog>
-      <v-dialog v-model="dialogCompareForm" max-width="500">
-        <form-compare-annotations
-          :project-id="projectId"
-          :project-users="projectUsers"
-          @cancel="dialogCompareForm = false"
-          @compare="openComparisonDialog"
-          @error="handleCompareError"
-        />
-      </v-dialog>
+      <form-compare-annotations
+        v-model="dialogCompareForm"
+        :project-id="projectId"
+        :documents="item.items"
+        :project-users="projectUsers"
+        @cancel="dialogCompareForm = false"
+        @compare="openMultiUserComparisonDialog"
+        @error="handleCompareError"
+      />
     </v-card-title>
     
     <image-list
@@ -121,13 +121,15 @@
       @assign="assign"
       @unassign="unassign"
     />
-<v-dialog v-model="dialogCompare" max-width="90%" height="80vh" content-class="comparison-dialog">
+
+    <!-- Multi-user comparison dialog -->
+<v-dialog v-model="dialogCompare" max-width="95%" height="90vh" content-class="comparison-dialog">
       <v-card class="comparison-card">
         <v-toolbar dark color="primary" dense>
           <v-btn icon @click="dialogCompare = false">
             <v-icon>mdi-close</v-icon>
           </v-btn>
-          <v-toolbar-title>Annotation Comparison</v-toolbar-title>
+          <v-toolbar-title>Multi-User Annotation Comparison</v-toolbar-title>
           <v-spacer></v-spacer>
           <v-chip small class="mr-2">
             <v-avatar left>
@@ -137,13 +139,12 @@
           </v-chip>
         </v-toolbar>
         
-        <!-- Comparison component -->
-        <comparison-view
+        <!-- Multi-user comparison component -->
+        <multi-user-comparison-view
           v-if="dialogCompare"
           :project-id="projectId"
           :document-id="selectedDocumentId"
-          :user1-id="comparisonUsers.user1"
-          :user2-id="comparisonUsers.user2"
+          :selected-users="selectedComparisonUsers"
           :labels="project && project.labels ? project.labels : []"
           :users="projectUsers || []"
           @close="dialogCompare = false"
@@ -198,9 +199,9 @@ import ImageList from '~/components/example/ImageList.vue'
 import { getLinkToAnnotationPage } from '~/presenter/linkToAnnotationPage'
 import { ExampleDTO, ExampleListDTO } from '~/services/application/example/exampleData'
 import { MemberItem } from '~/domain/models/member/member'
-import ComparisonView from '~/components/annotations/ComparisonView.vue'
-import FormCompareAnnotations from '~/components/example/FormCompareAnnotations.vue'
+import FormCompareAnnotations from '~/components/tasks/toolbar/forms/FormCompareAnnotations.vue'
 import { usePerspectiveApplicationService } from '@/services/application/perspective/perspectiveApplicationService'
+import MultiUserComparisonView from '~/components/annotations/MultiUserComparisonView.vue'
 
 export default Vue.extend({
   components: {
@@ -213,7 +214,7 @@ export default Vue.extend({
     FormDeleteBulk,
     FormResetAssignment,
     FormCompareAnnotations,
-    ComparisonView
+    MultiUserComparisonView
   },
 
   layout: 'project',
@@ -243,6 +244,7 @@ export default Vue.extend({
         user1: null,
         user2: null
       },
+      selectedComparisonUsers: [] as any[],
       projectUsers: [] as MemberItem[],
       noAnnotationsSnackbar: false,
       noAnnotationsMessage: '',
@@ -260,7 +262,8 @@ export default Vue.extend({
       snackbar: false,
       snackbarMessage: '',
       snackbarError: false,
-      snackbarErrorMessage: ''
+      snackbarErrorMessage: '',
+      loading: false
     }
   },
 
@@ -450,30 +453,70 @@ export default Vue.extend({
       this.item = await this.$services.example.list(this.projectId, this.$route.query)
     },
 
-
-    openComparisonDialog(this: NuxtAppOptions, users: { user1: number; user2: number }) {
+    async openMultiUserComparisonDialog(
+      this: NuxtAppOptions, 
+      comparisonData: { users: number[] }
+    ) {
+      console.log('openMultiUserComparisonDialog - Received comparison data:', comparisonData)
+      console.log('openMultiUserComparisonDialog - Users array:', comparisonData.users)
+      
       if (this.errorMessage || this.hasError) {
         this.dialogCompare = false;
         return;
       }
-      this.dialogCompareForm = false;
-      // Route to the new compare page with user1 and user2 as query params
-      this.$router.push({
-        path: `/projects/${this.projectId}/dataset/compare`,
-        query: { user1: users.user1, user2: users.user2 }
-      });
+      
+      // Show loading state
+      this.loading = true;
+      
+      try {
+        // Test if we can load the required data before navigating
+        const userIds = comparisonData.users.join(',');
+        console.log('openMultiUserComparisonDialog - Testing data load with user IDs:', userIds)
+        
+        // Test loading documents and users to ensure database is available
+        await this.$services.example.list(this.projectId, {});
+        await this.$repositories.member.list(this.projectId);
+        
+        // If we get here, data loading was successful, so we can navigate
+        this.dialogCompareForm = false;
+        this.loading = false;
+        
+        console.log('openMultiUserComparisonDialog - Data load successful, routing with user IDs:', userIds)
+        this.$router.push({
+          path: `/projects/${this.projectId}/dataset/compare`,
+          query: { users: userIds }
+        });
+      } catch (error) {
+        console.error('openMultiUserComparisonDialog - Error testing data load:', error)
+        this.loading = false;
+        
+        // Handle database unavailable error (503)
+        if (!error.response || (error.response && error.response.status >= 500)) {
+          this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        } else {
+          this.errorMessage = error.response?.data?.detail || 'An error occurred while preparing the comparison.';
+        }
+        
+        // Close the form and show error instead of navigating
+        this.dialogCompareForm = false;
+        this.dialogCompare = false;
+        
+        // Auto-clear error message after 5 seconds
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
     },
-
 
     handleNoAnnotations(event) {
       if (!event.response || (event.response.status && event.response.status >= 500)) {
-        this.errorMessage = 'Database unavailable at the moment, please try again later.';
+        this.errorMessage = 
+          'Database unavailable at the moment, please try again later.';
         setTimeout(() => { this.errorMessage = ''; }, 5000);
       } else {
         this.noAnnotationsMessage = event.message;
         this.noAnnotationsSnackbar = true;
       }
-
     },
 
     openVotePage(item: ExampleDTO) {
@@ -533,6 +576,14 @@ export default Vue.extend({
       this.hasError = true;
       this.dialogCompareForm = false;
       this.dialogCompare = false;
+    },
+
+    handleCompareClick() {
+      console.log('Compare button clicked!')
+      console.log('isProjectAdmin:', this.isProjectAdmin)
+      console.log('dialogCompareForm before:', this.dialogCompareForm)
+      this.dialogCompareForm = true
+      console.log('dialogCompareForm after:', this.dialogCompareForm)
     }
   }
 })
