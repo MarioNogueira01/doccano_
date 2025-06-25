@@ -19,6 +19,7 @@
                 persistent-hint
                 hint="Select 2 or more users to compare their annotations across all documents"
                 required
+                :disabled="loading"
               ></v-select>
             </v-col>
           </v-row>
@@ -26,12 +27,13 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn text @click="close">{{ $t('cancel') || 'Cancel' }}</v-btn>
+        <v-btn text @click="close" :disabled="loading">{{ $t('cancel') || 'Cancel' }}</v-btn>
         <v-btn
           color="primary"
           text
           @click="compare"
-          :disabled="!isValid"
+          :disabled="!isValid || loading"
+          :loading="loading"
         >
           {{ $t('compare') || 'Compare' }}
         </v-btn>
@@ -60,6 +62,10 @@ export default Vue.extend({
     projectUsers: {
       type: Array,
       default: () => []
+    },
+    loading: {
+      type: Boolean,
+      default: false
     }
   },
 
@@ -96,7 +102,7 @@ export default Vue.extend({
         this.$emit('compare', {
           users: this.selectedUsers
         })
-        this.close()
+        // Don't close the dialog here - let the parent handle it after checking for errors
       }
     }
   }
