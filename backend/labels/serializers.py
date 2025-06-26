@@ -19,8 +19,9 @@ class CategorySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "label",
+            "project_version",
         )
-        read_only_fields = ("user",)
+        read_only_fields = ("user", "project_version")
 
 
 class SpanSerializer(serializers.ModelSerializer):
@@ -39,8 +40,9 @@ class SpanSerializer(serializers.ModelSerializer):
             "label",
             "start_offset",
             "end_offset",
+            "project_version",
         )
-        read_only_fields = ("user",)
+        read_only_fields = ("user", "project_version")
 
 
 class TextLabelSerializer(serializers.ModelSerializer):
@@ -56,8 +58,9 @@ class TextLabelSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "text",
+            "project_version",
         )
-        read_only_fields = ("user",)
+        read_only_fields = ("user", "project_version")
 
 
 class RelationSerializer(serializers.ModelSerializer):
@@ -66,8 +69,8 @@ class RelationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Relation
-        fields = ("id", "prob", "user", "example", "created_at", "updated_at", "from_id", "to_id", "type")
-        read_only_fields = ("user",)
+        fields = ("id", "prob", "user", "example", "created_at", "updated_at", "from_id", "to_id", "type", "project_version")
+        read_only_fields = ("user", "project_version")
 
 
 class BoundingBoxSerializer(serializers.ModelSerializer):
@@ -89,8 +92,9 @@ class BoundingBoxSerializer(serializers.ModelSerializer):
             "y",
             "width",
             "height",
+            "project_version",
         )
-        read_only_fields = ("user",)
+        read_only_fields = ("user", "project_version")
 
 
 class SegmentationSerializer(serializers.ModelSerializer):
@@ -109,5 +113,6 @@ class SegmentationSerializer(serializers.ModelSerializer):
             "updated_at",
             "label",
             "points",
+            "project_version",
         )
-        read_only_fields = ("user",)
+        read_only_fields = ("user", "project_version")

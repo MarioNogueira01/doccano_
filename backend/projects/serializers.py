@@ -24,6 +24,7 @@ from .models import (
     VotingSession,
     VotingSessionAnswer,
     RuleDiscussionMessage,
+    Version,
 )
 
 
@@ -276,4 +277,37 @@ class ToSubmitQuestionsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ToSubmitQuestions
         fields = ['project', 'question', 'created_at', 'status', 'percentage']
+
+
+class VersionSerializer(serializers.ModelSerializer):
+    """Serializer for Project Version model."""
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    duration_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Version
+        fields = [
+            'id',
+            'project',
+            'project_name',
+            'start_date',
+            'end_date',
+            'status',
+            'duration_display'
+        ]
+        read_only_fields = ['id', 'start_date', 'duration_display']
+
+    def get_duration_display(self, obj):
+        """Return duration in human-readable format."""
+        duration = obj.duration
+        days = duration.days
+        hours, remainder = divmod(duration.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        
+        if days > 0:
+            return f"{days}d {hours}h {minutes}m"
+        elif hours > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{minutes}m"
 

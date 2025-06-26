@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "api",
     "roles",
-    "projects",
+    #"projects",
+    "projects.apps.ProjectsConfig",
     "metrics",
     "users",
 

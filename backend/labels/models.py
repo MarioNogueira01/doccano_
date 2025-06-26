@@ -27,6 +27,7 @@ class Label(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     version = models.PositiveIntegerField(default=1)
+    project_version = models.PositiveIntegerField(default=1)
 
     class Meta:
         abstract = True

@@ -70,7 +70,22 @@
       <v-btn class="me-1" small color="primary text-capitalize" @click="$emit('edit', item)">
         Edit
       </v-btn>
+      <v-tooltip bottom v-if="projectStatus === 'closed'">
+        <template #activator="{ on, attrs }">
+          <v-btn
+            small
+            color="primary text-capitalize"
+            :disabled="true"
+            v-bind="attrs"
+            v-on="on"
+          >
+            {{ $t('dataset.annotate') }}
+          </v-btn>
+        </template>
+        <span>Project is closed. You must reopen it to continue annotating.</span>
+      </v-tooltip>
       <v-btn
+        v-else
         small
         color="primary text-capitalize"
         :disabled="disabledButtons.includes(item.id)"
@@ -124,6 +139,11 @@ export default Vue.extend({
     disabledButtons: {
       type: Array,
       default: () => []
+    },
+    projectStatus: {
+      type: String,
+      default: 'open',
+      required: false
     }
   },
 
@@ -197,6 +217,10 @@ export default Vue.extend({
 
   methods: {
     toLabeling(item: ExampleDTO): any {
+      if (this.$root.$options.project && this.$root.$options.project.status === 'closed') {
+        this.$toasted && this.$toasted.error('Não é possível anotar porque o projeto está fechado.');
+        return;
+      }
       const index = this.items.indexOf(item)
       const offset = (this.options.page - 1) * this.options.itemsPerPage
       const page = (offset + index + 1).toString()

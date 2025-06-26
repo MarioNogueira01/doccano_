@@ -94,7 +94,7 @@ def export_annotation_history(project_id, dataset_name=None, annotation_status='
 
     try:
         with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['annotator', 'datasetName', 'label', 'date', 'example_text', 'numberOfAnnotations', 'perspectives']
+            fieldnames = ['annotator', 'datasetName', 'label', 'date', 'example_text', 'numberOfAnnotations', 'perspectives', 'project_version']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
             writer.writeheader()
@@ -189,7 +189,8 @@ def export_annotation_history(project_id, dataset_name=None, annotation_status='
                             'date': 'N/A',
                             'example_text': example.text if example.text else "",
                             'numberOfAnnotations': annotation_count,
-                            'perspectives': json.dumps(perspectives_data)
+                            'perspectives': json.dumps(perspectives_data),
+                            'project_version': 1
                         }
                         logger.info(f"Writing row (no annotations): {row}")
                         logger.debug(f"Perspectives data for no annotations: {row.get('perspectives', 'N/A')}")
@@ -228,7 +229,8 @@ def export_annotation_history(project_id, dataset_name=None, annotation_status='
                                 'date': annotation.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                                 'example_text': example.text if example.text else "",
                                 'numberOfAnnotations': annotation_count,
-                                'perspectives': json.dumps(perspectives_data)
+                                'perspectives': json.dumps(perspectives_data),
+                                'project_version': getattr(annotation, 'project_version', 1)
                             }
                             logger.info(f"Writing row (with annotation): {row}")
                             logger.debug(f"Perspectives data with annotation: {row.get('perspectives', 'N/A')}")

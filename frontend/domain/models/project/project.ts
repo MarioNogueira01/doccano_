@@ -75,7 +75,9 @@ export class Project {
     readonly updatedAt: string = '',
     readonly author: string = '',
     readonly isTextProject: boolean = false,
-    readonly _version: string = '1.0'
+    readonly _version: string = '1.0',
+    readonly projectVersion: number = 1,
+    readonly status: 'open' | 'closed' = 'open'
   ) {
     if (!validateMinLength(_name)) {
       throw new Error('Project name is required')
@@ -109,7 +111,9 @@ export class Project {
     useRelation: boolean,
     tags: TagItem[],
     allowMemberToCreateLabelType: boolean,
-    version: string = '1.0'
+    version: string = '1.0',
+    projectVersion: number = 1,
+    status: 'open' | 'closed' = 'open'
   ) {
     return new Project(
       id,
@@ -130,7 +134,9 @@ export class Project {
       '',
       '',
       false,
-      version
+      version,
+      projectVersion,
+      status
     )
   }
 

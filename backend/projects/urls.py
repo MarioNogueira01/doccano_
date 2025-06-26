@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from .views.perspective import PerspectiveViewSet, PerspectiveGroupViewSet, PerspectiveAnswerViewSet
-from .views.project import DiscrepancyAnalysisView, ProjectList, ProjectDetail, CloneProject
+from .views.project import DiscrepancyAnalysisView, ProjectList, ProjectDetail, CloneProject, CloseProject, ReopenProject, ProjectVersionsAPI
 
 from .views.report import ReportAnnotationsView
 from .views.votacoes import VotacoesView
@@ -43,6 +43,9 @@ urlpatterns = [
     # Other URL patterns
     path("projects", ProjectList.as_view(), name="project_list"),
     path("projects/<int:project_id>", ProjectDetail.as_view(), name="project_detail"),
+    path("projects/<int:project_id>/close", CloseProject.as_view(), name="close_project"),
+    path("projects/<int:project_id>/reopen", ReopenProject.as_view(), name="reopen_project"),
+    path("projects/<int:project_id>/versions", ProjectVersionsAPI.as_view(), name="project_versions"),
     path("projects/<int:project_id>/my-role", MyRole.as_view(), name="my_role"),
     path("projects/<int:project_id>/tags", TagList.as_view(), name="tag_list"),
     path("projects/<int:project_id>/tags/<int:tag_id>", TagDetail.as_view(), name="tag_detail"),

@@ -1,0 +1,38 @@
+frontend:
+(env e yarn dev)
+
+yarn dev
+
+backend:
+
+1 terminal:(env,poetry shell, runserver)
+$env:DATABASE_URL="postgres://doccano_admin:doccano_pass@localhost:5432/doccano?sslmode=disable"
+python3 -m pip install --upgrade pip
+pip install --upgrade setuptools
+python -m pip install --upgrade setuptools wheel twine
+pip install ruamel.yaml.clib
+poetry shell
+pip install tomli==2.0.1
+pip install platformdirs==4.0.0
+pip install --upgrade --force-reinstall packaging setuptools
+
+
+python manage.py migrate
+python manage.py create_roles
+python manage.py create_admin --noinput --username "admin" --email "admin@example.com" --password "password"
+python manage.py runserver
+
+
+2 terminal:(tirar pip)
+$env:DATABASE_URL="postgres://doccano_admin:doccano_pass@localhost:5432/doccano?sslmode=disable"
+poetry shell
+pip install psycopg2-binary==2.9.7
+celery --app=config worker --loglevel=INFO --concurrency=1
+
+3 terminal:(fazr os 3)
+$env:DATABASE_URL="postgres://doccano_admin:doccano_pass@localhost:5432/doccano?sslmode=disable"
+poetry shell
+doccano task
+
+passe pgadmin : postgres
+

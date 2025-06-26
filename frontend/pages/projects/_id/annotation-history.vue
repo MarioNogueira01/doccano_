@@ -40,54 +40,54 @@
         <!-- Content for Annotations Tab -->
         <v-tabs-items v-model="selectedTab">
           <v-tab-item value="tab-annotations">
-            <v-toolbar flat dense class="mb-4">
-              <v-spacer></v-spacer>
-              <v-select
-                v-model="selectedDatasetName"
+              <v-toolbar flat dense class="mb-4">
+                <v-spacer></v-spacer>
+                <v-select
+                  v-model="selectedDatasetName"
                 :items="datasetNames"
                 label="Dataset"
                 outlined
-                dense
+                  dense
                 class="mb-2"
                 @change="handleDatasetChange"
-              ></v-select>
-              <v-select
-                v-model="selectedAnnotationStatus"
+                ></v-select>
+                <v-select
+                  v-model="selectedAnnotationStatus"
                 :items="annotationStatuses"
-                label="Annotation Status"
+                  label="Annotation Status"
                 outlined
-                dense
+                  dense
                 class="mb-2"
                 @change="handleAnnotationStatusChange"
-              ></v-select>
-              <v-btn text @click="clearFilters">
-                CLEAR FILTERS
-              </v-btn>
-            </v-toolbar>
-            <v-data-table
-              :headers="headers"
+                ></v-select>
+                <v-btn text @click="clearFilters">
+                  CLEAR FILTERS
+                </v-btn>
+              </v-toolbar>
+              <v-data-table
+                :headers="headers"
               :items="filteredAnnotations"
-              :loading="loading"
-              class="elevation-1 mb-4"
-            ></v-data-table>
+                :loading="loading"
+                class="elevation-1 mb-4"
+              ></v-data-table>
 
-            <!-- Perspectives Table -->
-            <v-divider class="my-6"></v-divider>
-            
-            <v-card-title class="px-0">
-              <h2 class="text-h5">Perspectives</h2>
-              <v-spacer></v-spacer>
-              <v-btn color="primary" class="mr-2" :loading="loadingPerspectives"
-               :disabled="loadingPerspectives" @click="generatePerspectivesReport">
+              <!-- Perspectives Table -->
+              <v-divider class="my-6"></v-divider>
+              
+              <v-card-title class="px-0">
+                <h2 class="text-h5">Perspectives</h2>
+                <v-spacer></v-spacer>
+                <v-btn color="primary" class="mr-2" :loading="loadingPerspectives"
+                 :disabled="loadingPerspectives" @click="generatePerspectivesReport">
                 <v-icon left>mdi-file-document-outline</v-icon>
                 Generate Perspectives
-              </v-btn>
+                </v-btn>
               <v-btn color="primary" outlined :disabled="
               !perspectivesDownloadReady" @click="showPerspectivesExportDialog = true">
                 <v-icon left>mdi-download</v-icon>
                 Export Perspectives
-              </v-btn>
-            </v-card-title>
+                </v-btn>
+              </v-card-title>
 
             <v-row class="mb-2" align="center">
               <v-col cols="12" sm="4" md="3">
@@ -100,12 +100,12 @@
                 ></v-select>
               </v-col>
             </v-row>
-            <v-data-table
-              :headers="perspectiveHeaders"
+              <v-data-table
+                :headers="perspectiveHeaders"
               :items="filteredPerspectives"
-              :loading="loadingPerspectives"
-              class="elevation-1"
-            ></v-data-table>
+                :loading="loadingPerspectives"
+                class="elevation-1"
+              ></v-data-table>
 
             <!-- Discrepancies Table -->
             <v-divider class="my-6"></v-divider>
@@ -152,7 +152,7 @@
 
           <!-- Content for Annotators Tab -->
           <v-tab-item value="tab-annotators">
-            <p>Content for Annotation History (Annotators view)</p>
+              <p>Content for Annotation History (Annotators view)</p>
           </v-tab-item>
         </v-tabs-items>
       </v-card-text>
@@ -298,6 +298,7 @@ export default {
         { text: 'Date', value: 'date' },
         { text: 'Example Text', value: 'example_text' },
         { text: 'Number of Annotations', value: 'numberOfAnnotations' },
+        { text: 'Project Version', value: 'project_version' },
       ],
       perspectiveHeaders: [
         { text: 'Perspective Question', value: 'question' },
@@ -431,7 +432,7 @@ export default {
           error.response.status))) {
           this.$toasted.error('The server/database is unavailable. Please check if the backend is running.');
         } else {
-          this.$toasted.error('Error generating report');
+        this.$toasted.error('Error generating report');
         }
         this.loading = false;
       }
@@ -453,7 +454,7 @@ export default {
           error.response.status))) {
           this.$toasted.error('The server/database is unavailable. Please check if the backend is running.');
         } else {
-          this.$toasted.error('Error generating perspectives report');
+        this.$toasted.error('Error generating perspectives report');
         }
         this.loadingPerspectives = false;
       }
@@ -485,7 +486,7 @@ export default {
         clearInterval(this.polling);
         this.polling = null;
       }
-
+      
       this.polling = setInterval(async () => {
         if (!this.taskId) {
           clearInterval(this.polling);
@@ -502,13 +503,13 @@ export default {
               clearInterval(this.polling);
               this.polling = null;
               this.loading = false;
-
+              
               // Fetch the actual data for the table
               const data = await this.$repositories.annotationHistory.fetch(
                 this.projectId,
                 this.taskId
               );
-
+              
               this.annotations = data.map(item => {
                 let formattedDate = 'N/A';
                 if (item.date && item.date !== 'N/A') {
@@ -523,11 +524,11 @@ export default {
                 }
                 
                 return {
-                  ...item,
+                ...item,
                   date: formattedDate
                 };
               });
-
+              
               console.log("Fetched annotations:", this.annotations);
               this.downloadReady = true;
               this.$toasted.success('Annotations report generated successfully!');
@@ -553,7 +554,7 @@ export default {
         clearInterval(this.perspectivesPolling);
         this.perspectivesPolling = null;
       }
-
+      
       this.perspectivesPolling = setInterval(async () => {
         if (!this.perspectivesTaskId) {
           clearInterval(this.perspectivesPolling);
@@ -570,14 +571,14 @@ export default {
               clearInterval(this.perspectivesPolling);
               this.perspectivesPolling = null;
               this.loadingPerspectives = false;
-
+              
               // Fetch the actual data for the table
               const data = await this.$repositories.annotationHistory.fetch(
                 this.projectId,
                 this.perspectivesTaskId
               );
               console.log("Raw data fetched for perspectives:", data);
-
+              
               // Process only perspectives data
               const perspectivesData = data.reduce((acc, item, index) => {
                 let currentPerspectives = [];
@@ -585,7 +586,7 @@ export default {
 
                 // Ensure item.perspectives is a non-empty string before attempting JSON.parse
                 if (typeof item.perspectives === 'string') {
-                  if (item.perspectives.trim().length > 0) {
+                  if (item.perspectives.trim().length > 0) { 
                     try {
                       // Log the string before parsing
                       console.log(`Attempting to parse JSON string for item ${index}:`, item.perspectives);
@@ -628,7 +629,7 @@ export default {
                 }
                 return acc;
               }, []);
-
+              
               this.perspectives = perspectivesData;
               console.log("Fetched perspectives (after processing):", this.perspectives);
               this.perspectivesDownloadReady = true;
@@ -919,12 +920,12 @@ export default {
 
         // Add annotations data
         const annotationRows = this.annotations.map(item => [
-          item.annotator,
-          item.label,
-          item.date,
-          item.example_text,
-          item.numberOfAnnotations
-        ])
+            item.annotator,
+            item.label,
+            item.date,
+            item.example_text,
+            item.numberOfAnnotations
+          ])
         rows.push(...annotationRows)
 
         // Add perspectives data if available
@@ -932,13 +933,13 @@ export default {
           rows.push([]) // Empty row as separator
           rows.push(['Perspectives'])
           rows.push(['Question', 'Answer', 'Answered By', 'Answer Date'])
-
+          
           const perspectiveRows = this.perspectives.map(item => [
-            item.question,
-            item.answer,
-            item.answered_by,
-            item.answer_date
-          ])
+              item.question,
+              item.answer,
+              item.answered_by,
+              item.answer_date
+            ])
           rows.push(...perspectiveRows)
         }
 
@@ -961,7 +962,7 @@ export default {
         link.click()
         document.body.removeChild(link)
         window.URL.revokeObjectURL(url)
-
+        
         this.$toasted.success('CSV exported successfully!')
       } catch (error) {
         console.error('Error exporting CSV:', error)

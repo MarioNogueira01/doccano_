@@ -388,20 +388,15 @@ export default Vue.extend({
         this.$fetch()
       } catch (err: any) {
         console.error('Error creating profile:', err)
-        if (!err.response || (err.response && [500, 502, 503, 504].includes(
-          err.response.status))) {
-          this.errorMessage = 'The server/database is unavailable. Please check if the backend is running.'
+        const status = err.response?.status
+        const msg = err.response?.data?.name?.[0] || err.response?.data?.detail || ''
+
+        if (status === 400 && (msg.includes('already exists') || msg.includes('duplicate'))) 
+        {
+          this.errorMessage = 'Cannot create a profile with a name that already exists.'
           this.showErrorSnackbar = true
           setTimeout(() => (this.showErrorSnackbar = false), 3000)
-        } else if (err.response?.data?.name) {
-          this.nameError = err.response.data.name[0]
-          this.errorMessage = 'A profile with this name already exists'
-          this.showErrorSnackbar = true
-          setTimeout(() => (this.showErrorSnackbar = false), 3000)
-        } else {
-          this.errorMessage = 'Error creating profile'
-          this.showErrorSnackbar = true
-          setTimeout(() => (this.showErrorSnackbar = false), 3000)
+        
         }
       }
     },

@@ -7,6 +7,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db import models
 
 from .permissions import CanEditLabel
 from .serializers import (
@@ -42,6 +43,15 @@ class BaseListAPI(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = self.label_class.objects.filter(example=self.kwargs["example_id"])
+        
+        # Filtrar anotações pela versão atual do projeto
+        # Se project_version não existir na anotação, assume versão 1 (retrocompatibilidade)
+        current_version = self.project.project_version
+        queryset = queryset.filter(
+            models.Q(project_version=current_version) | 
+            models.Q(project_version__isnull=True)
+        )
+        
         # Se o parâmetro ?all=1 for fornecido, qualquer membro do projecto pode ver todas
         # as anotações deste exemplo. Caso contrário, se o projecto NÃO for colaborativo,
         # restringimos às anotações do próprio utilizador.
@@ -61,7 +71,15 @@ class BaseListAPI(generics.ListCreateAPIView):
         return response
 
     def perform_create(self, serializer):
-        serializer.save(example_id=self.kwargs["example_id"], user=self.request.user)
+        # Check if project is closed
+        if self.project.status == "closed":
+            raise ValidationError("Cannot create annotations in a closed project.")
+        
+        serializer.save(
+            example_id=self.kwargs["example_id"], 
+            user=self.request.user,
+            project_version=self.project.project_version
+        )
 
     def delete(self, request, *args, **kwargs):
         queryset = self.get_queryset()

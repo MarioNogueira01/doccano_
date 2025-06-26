@@ -14,10 +14,10 @@ from collections import defaultdict
 import os
 from django.db.models import Q
 
-from projects.models import Project, PerspectiveAnswer
-
+from projects.models import Project, PerspectiveAnswer, Version
 from projects.permissions import IsProjectAdmin, IsProjectStaffAndReadOnly
-from projects.serializers import ProjectPolymorphicSerializer
+from projects.serializers import ProjectPolymorphicSerializer, VersionSerializer
+from django.utils import timezone
 
 
 class ProjectList(generics.ListCreateAPIView):
@@ -243,4 +243,78 @@ class DiscrepancyAnalysisView(APIView):
                 {"detail": "An error occurred while processing your request."},
                 status=500
             )
+
+
+class CloseProject(APIView):
+    permission_classes = [IsAuthenticated & IsProjectAdmin]
+
+    def post(self, request, *args, **kwargs):
+        project = get_object_or_404(Project, pk=self.kwargs["project_id"])
+        if project.status == "closed":
+            return Response(
+                {"detail": "Project is already closed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Atualiza status do projeto
+        project.status = "closed"
+        project.save()
+        # Garante que a versão aberta é fechada
+        last_version = Version.objects.filter(project=project, status='open').order_by('-start_date').first()
+        if last_version:
+            last_version.status = 'closed'
+            last_version.end_date = timezone.now()
+            last_version.save()
+        serializer = ProjectPolymorphicSerializer(project)
+        return Response(serializer.data)
+
+
+class ReopenProject(APIView):
+    permission_classes = [IsAuthenticated & IsProjectAdmin]
+
+    def post(self, request, *args, **kwargs):
+        project = get_object_or_404(Project, pk=self.kwargs["project_id"])
+        if project.status == "open":
+            return Response(
+                {"detail": "Project is already open."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Incrementa versão e reabre
+        project.project_version += 1
+        project.status = "open"
+        project.save()
+        # Cria nova versão aberta
+        Version.objects.create(
+            project=project,
+            status='open'
+        )
+        serializer = ProjectPolymorphicSerializer(project)
+        return Response(serializer.data)
+
+
+class ProjectVersionsAPI(generics.ListAPIView):
+    """API to list all versions of a project."""
+    serializer_class = VersionSerializer
+    permission_classes = [IsAuthenticated & IsProjectStaffAndReadOnly]
+
+    def get_queryset(self):
+        project_id = self.kwargs["project_id"]
+        return Version.objects.filter(project_id=project_id).order_by('-start_date')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        
+        # Add project info
+        project = get_object_or_404(Project, pk=self.kwargs["project_id"])
+        response_data = {
+            'project': {
+                'id': project.id,
+                'name': project.name,
+                'current_version': project.project_version,
+                'current_status': project.status
+            },
+            'versions': serializer.data
+        }
+        
+        return Response(response_data)
 

@@ -17,7 +17,9 @@
       <v-icon small class="mr-1">
         {{ mdiHexagonMultiple }}
       </v-icon>
-      <span> {{ currentProject.name }}</span>
+      <span> {{ currentProject.name }}<template v-if="
+      currentProject.projectVersion && currentProject.projectVersion > 1"> 
+      v{{ currentProject.projectVersion }}</template></span>
     </v-btn>
 
     <div class="flex-grow-1" />

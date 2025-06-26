@@ -371,7 +371,43 @@ class RuleDiscussionMessage(models.Model):
         ordering = ['created_at']
 
     def __str__(self):
-        return f"RuleDiscussionMessage(session={self.voting_session.id}, idx={self.question_index})"
+        return f"Rule discussion message by {self.created_by.username if self.created_by else 'Unknown'} at {self.created_at}"
 
-        return f"Answer for {self.perspective.question}: {self.answer}"
+
+class Version(models.Model):
+    """Model to track project versions separately from the project table."""
+    project = models.ForeignKey(
+        Project, 
+        on_delete=models.CASCADE, 
+        related_name="versions"
+    )
+    start_date = models.DateTimeField(auto_now_add=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=10, 
+        choices=[("open", "Open"), ("closed", "Closed")],
+        default="open"
+    )
+
+    class Meta:
+        ordering = ['-start_date']
+        verbose_name = "Project Version"
+        verbose_name_plural = "Project Versions"
+
+    def __str__(self):
+        return f"Version {self.id} - {self.project.name} ({self.status}) - {self.start_date.strftime('%Y-%m-%d %H:%M')}"
+
+    def close_version(self):
+        """Close the current version by setting end_date and status."""
+        from django.utils import timezone
+        self.end_date = timezone.now()
+        self.status = "closed"
+        self.save()
+
+    @property
+    def duration(self):
+        """Calculate the duration of the version."""
+        from django.utils import timezone
+        end_time = self.end_date or timezone.now()
+        return end_time - self.start_date
 

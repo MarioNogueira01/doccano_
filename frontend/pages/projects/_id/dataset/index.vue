@@ -8,6 +8,43 @@
       </div>
     </transition>
 
+    <!-- Project closed warning -->
+    <v-alert
+      v-if="project.status === 'closed'"
+      type="warning"
+      class="mb-4"
+      border="left"
+      colored-border
+    >
+      <div class="d-flex align-center">
+        <v-icon left color="warning">mdi-lock</v-icon>
+        <div>
+          <strong>Este projeto está fechado.</strong> Não é possível fazer novas anotações.
+          <br>
+          <small>Versão atual: {{ project.projectVersion }}</small>
+        </div>
+      </div>
+    </v-alert>
+
+    <!-- New version info -->
+    <v-alert
+      v-if="project.status === 'open' && project.projectVersion > 1"
+      type="info"
+      class="mb-4"
+      border="left"
+      colored-border
+    >
+      <div class="d-flex align-center">
+        <v-icon left color="info">mdi-information</v-icon>
+        <div>
+          <strong>Esta é uma nova versão do projeto (v{{ project.projectVersion }}).</strong> 
+          Comece a anotar do zero.
+          <br>
+          <small>As anotações das versões anteriores foram preservadas no histórico.</small>
+        </div>
+      </div>
+    </v-alert>
+
     <v-card-title v-if="isProjectAdmin">
       <action-menu
         @upload="$router.push('dataset/import')"
@@ -17,19 +54,23 @@
         @compare="handleCompareClick"
       />
       <v-btn
+        v-if="project.status === 'open'"
         class="text-capitalize ms-2"
         color="error"
         outlined
         @click="updateProjectStatus('closed')"
       >
+        <v-icon left>mdi-lock</v-icon>
         Fechar Projeto
       </v-btn>
       <v-btn
+        v-if="project.status === 'closed'"
         class="text-capitalize ms-2"
         color="success"
         outlined
         @click="updateProjectStatus('open')"
       >
+        <v-icon left>mdi-lock-open</v-icon>
         Reabrir Projeto
       </v-btn>
       <v-btn
@@ -114,6 +155,7 @@
       :members="members"
       :total="item.count"
       :disabled-buttons="disabledAnnotations"
+      :project-status="project.status"
       @update:query="updateQuery"
       @click:labeling="movePage"
       @edit="editItem"
@@ -544,23 +586,28 @@ export default Vue.extend({
 
     async updateProjectStatus(newStatus: string) {
       try {
-        await this.$repositories.project.update(this.projectId, { status: newStatus });
+        if (newStatus === 'closed') {
+          await this.$repositories.project.closeProject(this.projectId);
+          this.snackbarMessage = 'Projeto fechado com sucesso!';
+        } else {
+          await this.$repositories.project.reopenProject(this.projectId);
+          this.snackbarMessage = `Projeto reaberto! Você está agora trabalhando na versão ${this.project.projectVersion + 1}.`;
+        }
+        
         await this.$store.dispatch('projects/fetchProject', this.projectId);
         
         // If closing project, navigate to projects list
         if (newStatus === 'closed') {
           this.$router.push('/projects');
-          this.snackbarMessage = 'Projeto fechado!';
-          this.snackbar = true;
         } else {
           // If opening project, navigate to the project's dataset page
           this.$router.push(`/projects/${this.projectId}/dataset`);
-          this.snackbarMessage = 'Projeto reaberto!';
-          this.snackbar = true;
         }
         
+        this.snackbar = true;
         this.$forceUpdate();
       } catch (e) {
+        console.error('Error updating project status:', e);
         this.snackbarErrorMessage = 'Erro ao atualizar status do projeto.';
         this.snackbarError = true;
       }

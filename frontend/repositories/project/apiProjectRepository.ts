@@ -43,7 +43,10 @@ function toModel(item: { [key: string]: any }): Project {
     item.created_at,
     item.updated_at,
     item.author,
-    item.is_text_project
+    item.is_text_project,
+    item.version || '1.0',
+    item.project_version || 1,
+    item.status || 'open'
   )
 }
 
@@ -140,5 +143,17 @@ export class APIProjectRepository {
       console.error('Erro ao buscar membros do projeto:', error);
       return [];
     }
+  }
+
+  async closeProject(projectId: string): Promise<Project> {
+    const url = `/projects/${projectId}/close`
+    const response = await this.request.post(url)
+    return toModel(response.data)
+  }
+
+  async reopenProject(projectId: string): Promise<Project> {
+    const url = `/projects/${projectId}/reopen`
+    const response = await this.request.post(url)
+    return toModel(response.data)
   }
 }
