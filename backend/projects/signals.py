@@ -8,7 +8,8 @@ def create_or_update_version(sender, instance, created, **kwargs):
     if created:
         Version.objects.create(
             project=instance,
-            status=instance.status
+            status=instance.status,
+            version=1
         )
     else:
         # Sempre que o status mudar, cria uma nova versão ou fecha a anterior
@@ -23,7 +24,12 @@ def create_or_update_version(sender, instance, created, **kwargs):
                     last_version.save()
                 # Se mudou de closed para open, cria nova versão aberta
                 elif instance.status == 'open' and last_version.status == 'closed':
+                    # Calcula o número da nova versão baseado no número de versões existentes
+                    existing_versions_count = Version.objects.filter(project=instance).count()
+                    new_version_number = existing_versions_count + 1
+                    
                     Version.objects.create(
                         project=instance,
-                        status='open'
+                        status='open',
+                        version=new_version_number
                     ) 

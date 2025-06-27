@@ -50,6 +50,7 @@ class Command(BaseCommand):
                 'project': project,
                 'start_date': project.created_at,
                 'status': project.status,
+                'version': 1,  # First version is always 1
             }
 
             # If project is closed, set end_date to updated_at
@@ -59,13 +60,13 @@ class Command(BaseCommand):
             if dry_run:
                 self.stdout.write(
                     f'Would create version for project {project.id} ({project.name}): '
-                    f'start={version_data["start_date"]}, status={version_data["status"]}'
+                    f'start={version_data["start_date"]}, status={version_data["status"]}, version={version_data["version"]}'
                 )
             else:
                 Version.objects.create(**version_data)
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Created version for project {project.id} ({project.name})'
+                        f'Created version {version_data["version"]} for project {project.id} ({project.name})'
                     )
                 )
             

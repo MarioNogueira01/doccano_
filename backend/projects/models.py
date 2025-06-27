@@ -388,6 +388,7 @@ class Version(models.Model):
         choices=[("open", "Open"), ("closed", "Closed")],
         default="open"
     )
+    version = models.IntegerField(default=1, help_text="Version number for this project version")
 
     class Meta:
         ordering = ['-start_date']
@@ -395,7 +396,7 @@ class Version(models.Model):
         verbose_name_plural = "Project Versions"
 
     def __str__(self):
-        return f"Version {self.id} - {self.project.name} ({self.status}) - {self.start_date.strftime('%Y-%m-%d %H:%M')}"
+        return f"Version {self.version} - {self.project.name} ({self.status}) - {self.start_date.strftime('%Y-%m-%d %H:%M')}"
 
     def close_version(self):
         """Close the current version by setting end_date and status."""

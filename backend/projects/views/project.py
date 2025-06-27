@@ -282,10 +282,16 @@ class ReopenProject(APIView):
         project.project_version += 1
         project.status = "open"
         project.save()
-        # Cria nova versão aberta
+        
+        # Calcula o número da nova versão baseado no número de versões existentes
+        existing_versions_count = Version.objects.filter(project=project).count()
+        new_version_number = existing_versions_count + 1
+        
+        # Cria nova versão aberta com o número calculado
         Version.objects.create(
             project=project,
-            status='open'
+            status='open',
+            version=new_version_number
         )
         serializer = ProjectPolymorphicSerializer(project)
         return Response(serializer.data)

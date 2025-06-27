@@ -21,7 +21,6 @@
         <div>
           <strong>Este projeto está fechado.</strong> Não é possível fazer novas anotações.
           <br>
-          <small>Versão atual: {{ project.projectVersion }}</small>
         </div>
       </div>
     </v-alert>
@@ -37,7 +36,9 @@
       <div class="d-flex align-center">
         <v-icon left color="info">mdi-information</v-icon>
         <div>
-          <strong>Esta é uma nova versão do projeto (v{{ project.projectVersion }}).</strong> 
+          <strong>
+            Esta é uma nova versão do projeto (v{{ project.projectVersion }}).
+          </strong>
           Comece a anotar do zero.
           <br>
           <small>As anotações das versões anteriores foram preservadas no histórico.</small>

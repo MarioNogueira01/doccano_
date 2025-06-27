@@ -100,6 +100,12 @@ class ProjectSerializer(serializers.ModelSerializer):
         project = self.Meta.model.objects.create(**validated_data)
         tags.is_valid()
         tags.save(project=project)
+        # Cria a versão 0 (original) do projeto
+        Version.objects.create(
+            project=project,
+            status=project.status,
+            version=1
+        )
         return project
 
     def update(self, instance, validated_data):
@@ -290,6 +296,7 @@ class VersionSerializer(serializers.ModelSerializer):
             'id',
             'project',
             'project_name',
+            'version',
             'start_date',
             'end_date',
             'status',

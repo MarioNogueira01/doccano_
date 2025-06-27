@@ -51,6 +51,7 @@ class VersionAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "project",
+        "version",
         "start_date",
         "end_date",
         "status",

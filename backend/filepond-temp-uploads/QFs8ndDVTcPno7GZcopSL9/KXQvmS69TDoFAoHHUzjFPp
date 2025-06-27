@@ -1,0 +1,24 @@
+LES docano
+username :mendez4213
+palavra-passe:v#k8y5Gh_
+correr:docker pss
+Docker start doccano
+Docker start mysql.doccano
+
+docker run --name doccano_container 
+-e "DATABASE_URL=postgres://doccano_user:doccano_pass@postgres_container:5432/doccano_db" 
+-e "ADMIN_USERNAME=admin" 
+-e "ADMIN_PASSWORD=adminpass" 
+-p 8000:8000 -d doccano/doccano:latest
+
+
+docker compose -f docker-compose.prod.yml --env-file .env up
+
+------
+como rodar o Docker 
+abrir pycharm e dockers 
+entrar na pasta : cd C:\LEI\3_ano\LES\doccano\docker
+depois : docker compose -f docker-compose.prod.yml --env-file .env up -d
+abiri localhost
+
+pgadmin: postgres
