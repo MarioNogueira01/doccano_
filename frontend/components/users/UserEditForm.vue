@@ -27,6 +27,17 @@
           :rules="emailRules"
           required
         />
+
+        <!-- Dropdown Perfil -->
+        <v-select
+          v-model="selectedGroupId"
+          :items="groupsOptions"
+          item-text="name"
+          item-value="id"
+          :rules="[v => !!v || 'Perfil é obrigatório']"
+          label="Perfil"
+        />
+
         <v-text-field
           v-model="formData.password1"
           label="Password"
@@ -92,7 +103,9 @@ export default {
       passwordRules: [(v) => !!v || 'Campo obrigatório'],
       // Snackbar de erro de base de dados
       dbErrorVisible: false,
-      dbErrorMessage: ''
+      dbErrorMessage: '',
+      groupsOptions: [],
+      selectedGroupId: null
     }
   },
   computed: {
@@ -117,6 +130,18 @@ export default {
       }
     }
   },
+  async created() {
+    try {
+      const res = await this.$axios.get('/v1/groups/')
+      this.groupsOptions = res.data
+      if (Array.isArray(this.user.groups) && this.user.groups.length) {
+        const current = this.groupsOptions.find(g => this.user.groups.includes(g.name))
+        if (current) this.selectedGroupId = current.id
+      }
+    } catch (e) {
+      console.error('Erro ao obter perfis:', e)
+    }
+  },
   methods: {
     onCancel() {
       this.$emit('cancel')
@@ -135,6 +160,10 @@ export default {
         }
         if (this.formData.password1) {
           payload.password = this.formData.password1
+        }
+
+        if (this.selectedGroupId) {
+          payload.groups_ids = [this.selectedGroupId]
         }
 
         await userService.updateUser(this.formData.id, payload)

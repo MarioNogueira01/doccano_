@@ -76,6 +76,16 @@
             dense
           />
           
+          <!-- Dropdown para selecionar o perfil (grupo) -->
+          <v-select
+            v-model="selectedGroupId"
+            :items="groupsOptions"
+            item-text="name"
+            item-value="id"
+            label="Perfil (opcional)"
+            dense
+          />
+          
           <!-- Add this superuser toggle -->
           <v-switch
             v-model="userData.is_superuser"
@@ -114,6 +124,7 @@ import Vue from 'vue'
 import { mdiAccount, mdiLock, mdiEmail, mdiCheckCircle, mdiMapMarker, mdiAlertCircle } from '@mdi/js'
 import { userNameRules, passwordRules } from '@/rules/index'
 import { APIAuthRepository } from '@/repositories/auth/apiAuthRepository'
+import ApiService from '@/services/api.service'
 
 export default Vue.extend({
   layout: 'projects',
@@ -131,6 +142,7 @@ export default Vue.extend({
         password1: '',
         password2: '',
         is_superuser: false,
+        groups: [] as number[],
       },
       userNameRules,
       passwordRules,
@@ -143,7 +155,9 @@ export default Vue.extend({
       emailRules: [
         (v: string) => !!v || 'Email is required',
         (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
-      ]
+      ],
+      groupsOptions: [] as { id: number; name: string }[],
+      selectedGroupId: null as number | null,
     }
   },
 
@@ -155,12 +169,25 @@ export default Vue.extend({
     }
   },
 
+  async created() {
+    // Buscar lista de perfis (grupos)
+    try {
+      const response = await ApiService.get('/groups/')
+      this.groupsOptions = response.data
+    } catch (err) {
+      console.error('Erro ao buscar perfis:', err)
+    }
+  },
+
   methods: {
     async createUser() {
       if (!this.valid) return
 
       try {
         this.errorMessage = '' // Clear any previous error message
+        // Definir grupos selecionados no payload (aceita lista de IDs)
+        this.userData.groups = this.selectedGroupId ? [this.selectedGroupId] : []
+
         const apiAuthRepository = new APIAuthRepository()
         await apiAuthRepository.createUser(this.userData)
         

@@ -34,6 +34,15 @@
       </span>
     </template>
 
+    <!-- Coluna Perfil -->
+    <template #[`item.groups`]="{ item }">
+      <span>
+        {{ Array.isArray(item.groups) && item.groups.length
+          ? item.groups.join(', ')
+          : '-' }}
+      </span>
+    </template>
+
     <!-- Actions column -->
     <template #[`item.actions`]="{ item }">
       <v-icon
@@ -90,6 +99,7 @@ export default Vue.extend({
         { text: this.$t('username'), value: 'username', sortable: true },
         { text: this.$t('email'), value: 'email', sortable: true },
         { text: this.$t('SuperUser'), value: 'isSuperuser', sortable: true },
+        { text: this.$t('Perfil') || 'Perfil', value: 'groups', sortable: false },
         { text: this.$t('last login'), value: 'last_login', sortable: true },
         { text: '', value: 'actions', sortable: false }
       ]

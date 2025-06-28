@@ -5,6 +5,7 @@ export class UserItem {
     readonly isSuperuser: boolean,
     readonly isStaff: boolean,
     readonly email: string,
+    readonly groups: string[] = [],
     readonly last_login: string = '',
   ) {}
 }

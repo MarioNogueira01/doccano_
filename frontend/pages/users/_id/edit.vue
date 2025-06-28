@@ -56,6 +56,15 @@
             type="email"
             dense
           />
+          <!-- Perfil dropdown -->
+          <v-select
+            v-model="selectedGroupId"
+            :items="groupsOptions"
+            item-text="name"
+            item-value="id"
+            label="Perfil (opcional)"
+            dense
+          />
           <v-text-field
             v-model="userData.password1"
             :rules="optionalPasswordRules"
@@ -131,7 +140,8 @@ export default Vue.extend({
         email: '',
         password1: '',
         password2: '',
-        is_superuser: false
+        is_superuser: false,
+        groups: [] as string[]
       },
       userNameRules,
       passwordRules,
@@ -146,7 +156,9 @@ export default Vue.extend({
       ],
       optionalPasswordRules: [
         (v: string) => !v || (v.length <= 30) || 'Password must be less than 30 chars'
-      ]
+      ],
+      groupsOptions: [] as { id: number; name: string }[],
+      selectedGroupId: null as number | null,
     }
   },
 
@@ -181,6 +193,15 @@ export default Vue.extend({
       this.userData.last_name = user.last_name || ''
       this.userData.email = user.email
       this.userData.is_superuser = user.is_superuser || false
+      this.userData.groups = user.groups || []
+
+      // buscar grupos
+      const res = await this.$axios.get('/v1/groups/')
+      this.groupsOptions = res.data
+      if (this.userData.groups.length) {
+        const current = this.groupsOptions.find(g => this.userData.groups.includes(g.name))
+        if (current) this.selectedGroupId = current.id
+      }
     } catch (error) {
       console.error('Error fetching user:', error)
       this.errorMessage = 'Failed to load user information.'
@@ -203,10 +224,13 @@ export default Vue.extend({
         if (this.userData.password1) {
           payload.password = this.userData.password1
         }
+        if (this.selectedGroupId) {
+          payload.groups_ids = [this.selectedGroupId]
+        }
         await userService.updateUser(this.userData.id, payload)
         this.showSuccess = true
-        // Se o user editou o próprio perfil, forçar logout/redirecionar para login
-        setTimeout(() => this.$router.push('/auth'), 1000)
+        // Após sucesso, volta à lista de utilizadores
+        setTimeout(() => this.$router.push('/users'), 1000)
       } catch (error) {
         console.error('Error updating user:', error)
         this.errorMessage = 'Database unavailable at the moment, please try again later.'
