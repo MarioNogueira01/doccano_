@@ -3,9 +3,9 @@ import { ApiDiscrepancieRepository } from '@/repositories/discrepancies/apiDiscr
 export class DiscrepacieApplicationService {
     constructor(private readonly repository: ApiDiscrepancieRepository) {}
 
-    async listDiscrepancie(projectId: string | number) {
-        return await this.repository.list(projectId)
-      }
+    async listDiscrepancie(projectId: string | number, params?: Record<string, any>) {
+        return await this.repository.list(projectId, params)
+    }
 
     async postDiscrepancies(projectId: string | number, data: any) {
         return await this.repository.postDiscrepancies(projectId, data)

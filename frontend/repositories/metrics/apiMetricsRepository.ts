@@ -41,4 +41,16 @@ export class APIMetricsRepository {
     const response = await this.request.get(url);
     return response.data;
   }
+
+  /**
+   * Obtém o relatório (PDF) de dataset para o projecto.
+   * @param projectId ID do projecto
+   * @param queryParams string de query (ex: ?version_id=3)
+   */
+  async fetchDatasetReport(projectId: string, queryParams: string = '') {
+    const url = `/projects/${projectId}/metrics/dataset-report${queryParams}`
+    // Important: definir responseType blob para receber o PDF
+    const response = await this.request.get(url, { responseType: 'blob' })
+    return response.data // blob
+  }
 }

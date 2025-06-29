@@ -412,3 +412,31 @@ class Version(models.Model):
         end_time = self.end_date or timezone.now()
         return end_time - self.start_date
 
+
+class ProjectDiscussionMessage(models.Model):
+    """Mensagens trocadas no chat global de discussão do projeto, associadas a uma versão."""
+    project = models.ForeignKey(
+        'Project',
+        on_delete=models.CASCADE,
+        related_name='project_discussion_messages'
+    )
+    version = models.ForeignKey(
+        'Version',
+        on_delete=models.CASCADE,
+        related_name='discussion_messages'
+    )
+    message = models.TextField()
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Message {self.id} (v{self.version.version}) from {self.created_by}"
+

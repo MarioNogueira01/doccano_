@@ -1,461 +1,260 @@
 <template>
-  <v-card>
-    <v-card-title class="align-center flex-wrap">
-      <h2 class="text-h6 mb-4 mb-md-0 me-md-4">Estatísticas do Histórico de Anotações</h2>
-
-      <!-- Select Dataset (placeholder, apenas um por enquanto) -->
-      <v-select
-        v-model="selectedDataset"
-        :items="datasetOptions"
-        item-text="text"
-        item-value="value"
-        label="Dataset"
-        dense
-        hide-details
-        class="me-2"
-        style="max-width: 200px"
-        @change="onDatasetChange"
-      />
-
-      <!-- Select Versão -->
-      <v-select
-        v-model="selectedVersion"
-        :items="versionOptions"
-        label="Versão"
-        dense
-        hide-details
-        clearable
-        class="me-2"
-        style="max-width: 150px"
-        @change="applyFilters"
-      />
-
-      <!-- NEW: Agreement / Disagreement filter -->
-      <v-select
-        v-model="selectedStatus"
-        :items="statusOptions"
-        item-text="text"
-        item-value="value"
-        label="Status"
-        dense
-        hide-details
-        clearable
-        class="me-2"
-        style="max-width: 160px"
-        @change="applyFilters"
-      />
-
-      <!-- Filtro de data -->
-      <v-menu v-model="dateMenu" :close-on-content-click="false" transition="scale-transition">
-        <template #activator="{ on }">
-          <v-text-field
-            v-model="beforeFormatted"
-            label="Antes de"
-            prepend-icon="mdi-calendar"
-            readonly
-            dense
-            v-on="on"
-            hide-details
-            style="max-width: 160px"
-          />
-        </template>
-        <v-date-picker v-model="before" @change="applyFilters" scrollable />
-      </v-menu>
-
-      <!-- Button / dialog for filtering by Perspective answers -->
-      <v-dialog v-model="perspectiveFilterDialog" max-width="600px">
-        <template #activator="{ on, attrs }">
-          <v-btn color="primary" dark v-bind="attrs" v-on="on" class="me-2">
-            Filtrar por Perspectiva
-          </v-btn>
-        </template>
+  <v-container fluid>
+    <v-row>
+      <v-col cols="12">
         <v-card>
-          <v-card-title>Filtro de Perspectivas</v-card-title>
+          <v-card-title class="d-flex align-center flex-wrap">
+            <span class="text-h6 mr-4">History Statistics</span>
+            <v-select
+              v-model="selectedVersionId"
+              :items="versionOptions"
+              label="Version"
+              dense
+              hide-details
+              style="max-width:120px"
+              class="mr-4"
+              @change="fetchStats"
+            />
+            <v-spacer></v-spacer>
+            <!-- Export buttons (placeholder) -->
+            <v-btn color="primary" outlined class="mr-2" @click="exportCSV">
+              Export CSV
+            </v-btn>
+            <v-btn color="primary" outlined @click="exportPDF">
+              Export PDF
+            </v-btn>
+          </v-card-title>
+
+          <v-divider />
+
           <v-card-text>
-            <v-container>
-              <v-row v-for="group in perspectiveGroups" :key="group.id">
-                <v-col cols="12">
-                  <h3>{{ group.name }}</h3>
-                  <v-row v-for="question in group.questions" :key="question.id">
-                    <v-col cols="12">
-                      <!-- String / Integer with predefined options -->
-                      <v-select
-                        v-if="hasPredefinedOptions(question)"
-                        v-model="selectedPerspectiveAnswers[question.id]"
-                        :items="question.options"
-                        :label="question.question"
-                        multiple
-                        chips
-                        deletable-chips
-                        clearable
-                      />
+            <v-data-table
+              :headers="headers"
+              :items="stats"
+              class="elevation-1"
+            >
+              <!-- eslint-disable-next-line vue/valid-v-slot -->
+              <template #item.status="{ item }">
+                <v-chip :color="item.annotated ? 'success' : 'warning'" small>
+                  {{ item.annotated ? 'Annotated' : 'Pending' }}
+                </v-chip>
+              </template>
+              <!-- eslint-disable-next-line vue/valid-v-slot -->
+              <template #item.chart="{ item }">
+                <div>
+                  <div
+                    v-for="(label, idx) in item.labels"
+                    :key="label"
+                    class="mb-1 d-flex align-center"
+                  >
+                    <!-- Label -->
+                    <span style="width:80px">{{ label }}</span>
 
-                      <!-- Boolean (store as real boolean) -->
-                      <v-select
-                        v-else-if="question.data_type === 'boolean'"
-                        v-model="selectedPerspectiveAnswers[question.id]"
-                        :items="booleanOptions"
-                        item-text="text"
-                        item-value="value"
-                        :label="question.question"
-                        clearable
-                      />
+                    <!-- Barra de progresso -->
+                    <v-progress-linear
+                      :value="getPercentage(item, idx)"
+                      color="primary"
+                      height="14"
+                      rounded
+                      class="flex-grow-1 mx-2"
+                      background-opacity="0.15"
+                    />
 
-                      <!-- Dynamic options fetched from existing answers -->
-                      <v-select
-                        v-else-if="hasDynamicOptions(question)"
-                        v-model="selectedPerspectiveAnswers[question.id]"
-                        :items="getDynamicOptions(question)"
-                        :label="question.question"
-                        multiple
-                        chips
-                        deletable-chips
-                        clearable
-                      />
-
-                      <!-- Integer without predefined options: free numeric input -->
-                      <v-text-field
-                        v-else-if="question.data_type === 'int'"
-                        v-model.number="selectedPerspectiveAnswers[question.id]"
-                        :label="question.question"
-                        type="number"
-                        clearable
-                      />
-
-                      <!-- Fallback for any other data types -->
-                      <v-text-field
-                        v-else
-                        v-model="selectedPerspectiveAnswers[question.id]"
-                        :label="question.question"
-                        clearable
-                      />
-                    </v-col>
-                  </v-row>
-                </v-col>
-              </v-row>
-            </v-container>
+                    <!-- Percentagem -->
+                    <span style="width:40px;text-align:right;">
+                      {{ getPercentage(item, idx).toFixed(1) }}%
+                    </span>
+                  </div>
+                </div>
+              </template>
+            </v-data-table>
           </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn color="primary" text @click="applyPerspectiveFilters">Aplicar</v-btn>
-            <v-btn text @click="clearPerspectiveFilters">Limpar</v-btn>
-          </v-card-actions>
         </v-card>
-      </v-dialog>
-
-      <v-spacer />
-
-      <!-- Export buttons -->
-      <v-btn color="primary" outlined class="me-2" @click="exportCSV">
-        Exportar CSV
-      </v-btn>
-      <v-btn color="primary" outlined @click="exportPDF">
-        Exportar PDF
-      </v-btn>
-    </v-card-title>
-
-    <v-divider />
-
-    <v-card-text>
-      <v-row>
-        <v-col
-          v-for="stat in displayedStats"
-          :key="stat.version"
-          cols="12"
-          md="6"
-          class="mb-8"
-        >
-          <v-card outlined>
-            <v-card-title class="subtitle-2">
-              Versão {{ stat.version }} - {{ stat.annotator || '??' }}
-            </v-card-title>
-            <v-card-text style="position:relative;height:400px;">
-              <bar-chart
-                :key="stat.version"
-                :labels="stat.labels"
-                :values="stat.votes"
-                :chart-id="`chart_${stat.version}`"
-                :ref="`chart_${stat.version}`"
-              />
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-
-      <!-- Snackbar de erro -->
-      <v-snackbar v-model="dbErrorVisible" :timeout="4000" color="error" top>
-        {{ dbErrorMessage }}
-        <v-btn text @click="dbErrorVisible = false">Fechar</v-btn>
-      </v-snackbar>
-    </v-card-text>
-  </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script>
-import { Bar, mixins } from 'vue-chartjs'
-const { reactiveProp } = mixins
-
-const BarChart = {
-  extends: Bar,
-  mixins: [reactiveProp],
-  props: ['labels', 'values'],
-  mounted () { this.render() },
-  watch: {
-    values () { this.render() },
-    labels () { this.render() }
-  },
-  methods: {
-    render () {
-      this.renderChart({
-        labels: this.labels,
-        datasets: [{ label: 'Percentagem', backgroundColor: '#42A5F5', data: this.values }]
-      }, {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          yAxes: [{
-            ticks: {
-              beginAtZero: true,
-              max: 100,
-              callback: value => `${value}%`
-            }
-          }]
-        },
-        tooltips: {
-          callbacks: {
-            label: (tooltipItem) => `${parseFloat(tooltipItem.yLabel).toFixed(1)}%`
-          }
-        }
-      })
-    }
-  }
-}
-
 export default {
-  name: 'HistoryStats',
-  components: { BarChart },
   layout: 'project',
   middleware: ['check-auth', 'auth', 'setCurrentProject'],
   data () {
     return {
       stats: [],
-      before: null,
-      dateMenu: false,
-      progress: 100,
-      // Include a default "all" option so the user can view stats for all datasets
-      datasetOptions: [{ text: 'Todos os Datasets', value: null }],
-      selectedDataset: null,
-      versionOptions: [],
-      selectedVersion: null,
-      // NEW: status filter
-      statusOptions: [
-        { text: 'Todos', value: null },
-        { text: 'Acordo', value: 'agreement' },
-        { text: 'Desacordo', value: 'disagreement' }
-      ],
-      selectedStatus: null,
-      // Perspective filters
-      perspectiveFilterDialog: false,
-      perspectiveGroups: [],
-      selectedPerspectiveAnswers: {},
-      dynamicOptions: {},
-      // Snackbar erro BD
-      dbErrorVisible: false,
-      dbErrorMessage: '',
-      // Reusable boolean options for selects (prevents long template lines)
-      booleanOptions: [
-        { text: 'Yes', value: true },
-        { text: 'No', value: false }
+      versions: [],
+      selectedVersionId: null,
+      headers: [
+        { text: 'ID', value: 'id' },
+        { text: 'Text', value: 'text' },
+        { text: 'Status', value: 'status' },
+        { text: 'Label Distribution', value: 'chart', sortable: false }
       ]
     }
   },
   computed: {
-    projectId () { return this.$route.params.id },
-    displayedStats () {
-      if (this.selectedVersion !== null) {
-        return this.stats.filter(s => s.version === this.selectedVersion)
-      }
-      return this.stats
-    },
-    beforeFormatted () { return this.before || '' }
-  },
-  watch: {
-    // Always refetch stats when dataset changes via v-model (fallback in case @change fails)
-    selectedDataset () {
-      this.onDatasetChange()
+    versionOptions () {
+      return this.versions.map(v => ({ text: `v${v.version}`, value: v.version }))
     }
   },
-  async mounted () {
-    // load datasets
-    try {
-      const remoteDatasets = await this.$repositories.stats.datasets(this.projectId)
-      // Always prepend the "all datasets" option
-      this.datasetOptions = [{ text: 'Todos os Datasets', value: null }, ...remoteDatasets]
-      // Keep previously selected value or default to "all"
-      if (remoteDatasets.length && this.selectedDataset === null) {
-        this.selectedDataset = null
-      }
-    } catch (e) {
-      console.error('Erro ao carregar datasets', e)
-      this.handleDbError(e, 'Erro ao carregar datasets.')
-    }
-    this.fetchStats()
-
-    // Load perspective groups for filters
-    try {
-      const response = await this.$services.perspective.listPerspectiveGroups(this.projectId)
-      this.perspectiveGroups = response.results || response.data?.results || []
-
-      // After groups loaded fetch dynamic answer options for open questions
-      await this.populateDynamicOptions()
-    } catch (e) {
-      console.error('Failed to load perspective groups', e)
-      this.handleDbError(e, 'Erro ao carregar grupos de perspectiva.')
-    }
+  mounted () {
+    this.loadVersions()
   },
   methods: {
-    handleDbError (err, fallbackMsg) {
-      if (!err.response || (err.response.status && err.response.status >= 500)) {
-        this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
-      } else {
-        this.dbErrorMessage = err.response?.data?.detail || fallbackMsg || 'Ocorreu um erro.'
-      }
-      this.dbErrorVisible = true
-    },
-    onDatasetChange () {
-      // Reset selected version when dataset changes to avoid dangling version values
-      this.selectedVersion = null
-      this.applyFilters()
-    },
-    buildParams () {
-      const params = {}
-      // Apply dataset filter if selected
-      if (this.selectedDataset) {
-        params.dataset = this.selectedDataset
-      }
-      if (this.before) params.before = this.before
-      if (this.progress !== null && this.progress !== 100) params.progress = this.progress
-
-      // Perspective filters
-      if (Object.keys(this.selectedPerspectiveAnswers).length > 0) {
-        params.perspective_filters = JSON.stringify(this.selectedPerspectiveAnswers)
-      }
-
-      // NEW: overall status filter
-      if (this.selectedStatus) {
-        params.overall_status = this.selectedStatus
-      }
-      return params
-    },
-    async fetchStats () {
+    async loadVersions () {
       try {
-        const params = this.buildParams()
-        const rawStats = await this.$repositories.stats.labelVotes(
-          this.projectId,
-          params
-        )
-
-        this.stats = rawStats.map(s => {
-          const total = s.votes.reduce((acc, v) => acc + v, 0)
-          const percentVotes = total === 0
-            ? s.votes.map(() => 0)
-            : s.votes.map(v => parseFloat(((v / total) * 100).toFixed(2)))
-          return { ...s, votes: percentVotes }
-        })
-
-        this.versionOptions = this.stats.map(d => d.version).sort((a, b) => a - b)
-      } catch (e) {
-        console.error('Erro ao buscar estatísticas', e)
-        this.handleDbError(e, 'Erro ao buscar estatísticas.')
-      }
-    },
-    applyFilters () {
-      this.fetchStats()
-    },
-    applyPerspectiveFilters () {
-      this.perspectiveFilterDialog = false
-      this.applyFilters()
-    },
-    clearPerspectiveFilters () {
-      this.selectedPerspectiveAnswers = {}
-      this.perspectiveFilterDialog = false
-      this.applyFilters()
-    },
-    hasPredefinedOptions (q) {
-      return q.data_type === 'string' && q.options && q.options.length > 0
-    },
-    /* ------------------------- DYNAMIC OPTIONS ------------------------- */
-    async populateDynamicOptions () {
-      const service = this.$services.perspective
-      for (const group of this.perspectiveGroups) {
-        for (const q of group.questions) {
-          if (q.data_type === 'string' && (!q.options || q.options.length === 0)) {
-            try {
-              const resp = await service.listPerspectiveAnswersByQuestion(this.projectId, q.id)
-              const values = [...new Set((resp.results || resp.data || resp).map(a => a.answer))]
-              if (values.length > 0) {
-                this.$set(this.dynamicOptions, q.id, values)
-              }
-            } catch (err) {
-              console.error('Erro ao buscar opções dinâmicas para questão', q.id, err)
-            }
-          }
+        const res = await this.$services.project.listVersions(this.$route.params.id)
+        const list = Array.isArray(res) ? res : (res.versions || [])
+        this.versions = list
+        if (list.length) {
+          this.selectedVersionId = list[0].version
         }
+        this.fetchStats()
+      } catch (e) {
+        console.error('Erro ao carregar versões', e)
+        this.fetchStats()
       }
     },
-    getDynamicOptions (q) {
-      return this.dynamicOptions[q.id] || []
-    },
-    hasDynamicOptions (q) {
-      return this.getDynamicOptions(q).length > 0
-    },
-    /* -------------------------    EXPORT  CSV / PDF   ------------------------- */
-    exportCSV () {
-      const delimiter = ';'
-      const rows = [
-        ['Versão', 'Anotador', 'Rótulo', 'Percentagem']
-      ]
-
-      this.displayedStats.forEach(s => {
-        s.labels.forEach((label, idx) => {
-          rows.push([s.version, s.annotator || '', label, `${s.votes[idx]}%`])
+    fetchStats () {
+      const params = new URLSearchParams()
+      params.append('page', '1')
+      params.append('page_size', '100')
+      if (this.selectedVersionId) {
+        params.append('version_id', this.selectedVersionId)
+      }
+      const url = params.toString() ? `?${params.toString()}` : ''
+      this.$repositories.metrics.fetchDatasetStatistics(this.$route.params.id, url)
+        .then((data) => {
+          if (!data || !data.entries) {
+            this.stats = []
+            return
+          }
+          this.stats = data.entries.map((e) => {
+            const labels = Object.keys(e.labelDistribution || {})
+            const votesArr = labels.map((l) => e.labelDistribution[l])
+            return {
+              id: e.id,
+              text: e.text,
+              annotated: e.annotated,
+              labels,
+              votes: votesArr.length ? votesArr : [0],
+            }
+          })
         })
-      })
+        .catch((err) => {
+          console.error('Erro ao buscar estatísticas:', err)
+          this.stats = []
+        })
+    },
+    exportCSV () {
+      try {
+        const delimiter = ';'
+        // Cabeçalho CSV
+        const rows = [
+          ['ID', 'Text', 'Status', 'Label', 'Percentage']
+        ]
 
-      const csvContent = '\uFEFF' + // UTF-8 BOM for better compatibility (Excel)
-        rows
-          .map(r => r.map(item => {
-            const field = String(item)
-            const needsQuotes = field.includes(delimiter) || field.includes('"') || field.includes('\n')
-            const escaped = field.replace(/"/g, '""')
-            return needsQuotes ? `"${escaped}"` : escaped
-          }).join(delimiter))
-          .join('\r\n')
+        // Para cada exemplo e respectiva distribuição de labels
+        this.stats.forEach((item) => {
+          const { id, text, annotated, labels, votes } = item
+          const total = votes.reduce((a, b) => a + b, 0) || 1
+          labels.forEach((label, idx) => {
+            const percentage = ((votes[idx] / total) * 100).toFixed(1)
+            rows.push([
+              id,
+              text.replace(/\n/g, ' ').substring(0, 200),
+              annotated ? 'Annotated' : 'Pending',
+              label,
+              percentage + '%'
+            ])
+          })
+        })
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `hist_stats_${new Date().toISOString()}.csv`)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+        const csvContent = '\uFEFF' + rows.map(r => r.map(field => {
+          const f = String(field)
+          const needsQuotes = f.includes(delimiter) || f.includes('"') || f.includes('\n')
+          const escaped = f.replace(/"/g, '""')
+          return needsQuotes ? `"${escaped}"` : escaped
+        }).join(delimiter)).join('\r\n')
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `history_stats_${new Date().toISOString()}.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        this.$toasted?.success('CSV exportado!')
+      } catch (err) {
+        console.error('Erro exportando CSV:', err)
+        this.$toasted?.error('Falha ao exportar CSV')
+      }
+    },
+    async exportPDF () {
+      try {
+        const JsPDF = await this.loadJsPDF()
+        const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+        const margin = 15
+        const pageWidth = doc.internal.pageSize.getWidth()
+
+        // Título
+        doc.setFontSize(18)
+        doc.text('History Statistics', pageWidth / 2, 20, { align: 'center' })
+
+        // Informação da versão
+        const versionText = this.selectedVersionId ? `Version: v${this.selectedVersionId}` : 'All versions'
+        doc.setFontSize(12)
+        doc.text(versionText, margin, 30)
+
+        // Montar dados para a tabela
+        const tableHead = [['ID', 'Text', 'Status', 'Label', '%']]
+        const tableBody = []
+
+        this.stats.forEach((item) => {
+          const total = item.votes.reduce((a, b) => a + b, 0) || 1
+          item.labels.forEach((label, idx) => {
+            tableBody.push([
+              String(item.id),
+              item.text.substring(0, 60) + (item.text.length > 60 ? '...' : ''),
+              item.annotated ? 'Annotated' : 'Pending',
+              label,
+              ((item.votes[idx] / total) * 100).toFixed(1) + '%'
+            ])
+          })
+        })
+
+        // @ts-ignore autoTable disponible no runtime
+        doc.autoTable({
+          startY: 40,
+          head: tableHead,
+          body: tableBody,
+          margin: { left: margin, right: margin },
+          theme: 'grid',
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [63, 81, 181], textColor: 255 },
+        })
+
+        // Abrir em nova aba
+        const pdfBlob = doc.output('blob')
+        const url = URL.createObjectURL(pdfBlob)
+        window.open(url, '_blank')
+        this.$toasted?.success('PDF aberto em nova aba')
+      } catch (e) {
+        console.error('Erro exportando PDF', e)
+        this.$toasted?.error('Falha ao exportar PDF')
+      }
     },
     async loadJsPDF () {
+      // Se já carregado, reutiliza
       if (window.jspdf && window.jspdf.jsPDF) {
-        // Ensure autoTable plugin is loaded as well
         if (!window.jspdf.jsPDF.API.autoTable) {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script')
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
-            script.onload = resolve
-            script.onerror = reject
-            document.body.appendChild(script)
-          })
+          await this.loadAutoTable()
         }
         return window.jspdf.jsPDF
       }
+      // Carrega jsPDF
       await new Promise((resolve, reject) => {
         const script = document.createElement('script')
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
@@ -463,116 +262,26 @@ export default {
         script.onerror = reject
         document.body.appendChild(script)
       })
-      // After core loaded, load autotable
-      await new Promise((resolve, reject) => {
+      await this.loadAutoTable()
+      return window.jspdf.jsPDF
+    },
+    loadAutoTable () {
+      return new Promise((resolve, reject) => {
         const script = document.createElement('script')
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js'
         script.onload = resolve
         script.onerror = reject
         document.body.appendChild(script)
       })
-      return window.jspdf.jsPDF
     },
-    async exportPDF () {
-      try {
-        const jsPDF = await this.loadJsPDF()
-        // eslint-disable-next-line new-cap
-        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-
-        let y = 10
-        const pageWidth = doc.internal.pageSize.getWidth()
-        const pageHeight = doc.internal.pageSize.getHeight()
-        const margin = 18
-
-        // Header bar
-        doc.setFillColor(63, 81, 181) // Indigo
-        doc.rect(0, 0, pageWidth, 20, 'F')
-        doc.setFontSize(16)
-        doc.setTextColor(255, 255, 255)
-        doc.setFont(undefined, 'bold')
-        doc.text('Estatísticas do Histórico de Anotações', pageWidth / 2, 13, { align: 'center' })
-
-        // Reset default text color
-        doc.setTextColor(0, 0, 0)
-
-        y = 28
-        const maxPageHeight = pageHeight - margin
-
-        const addFooter = (pageNum, totalPages) => {
-          doc.setFontSize(8)
-          doc.setTextColor(150)
-          doc.text(`Página ${pageNum} / ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' })
-          doc.setTextColor(0)
-        }
-
-        this.displayedStats.forEach(s => {
-          // Section title
-          doc.setFontSize(13)
-          doc.setFont(undefined, 'bold')
-          doc.text(`Versão ${s.version}`, margin, y)
-          y += 6
-
-          // Include table-like list under chart
-          const chartCanvas = document.getElementById(`chart_${s.version}`)
-          if (chartCanvas) {
-            const imgData = chartCanvas.toDataURL('image/png', 1.0)
-            // Calculate image dimensions (keep aspect ratio, fit width)
-            const imgWidth = pageWidth - margin * 2
-            const imgHeight = (chartCanvas.height / chartCanvas.width) * imgWidth
-
-            if (y + imgHeight > maxPageHeight) {
-              doc.addPage()
-              y = margin
-            }
-
-            doc.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight)
-            y += imgHeight + 4
-          }
-
-          // Labels table with autoTable
-          const tableBody = s.labels.map((label, idx) => [label, `${s.votes[idx]}%`])
-          doc.autoTable({
-            head: [['Rótulo', 'Percentagem']],
-            body: tableBody,
-            startY: y,
-            margin: { left: margin, right: margin },
-            theme: 'grid',
-            headStyles: { fillColor: [63, 81, 181], halign: 'center', valign: 'middle', textColor: 255 },
-            bodyStyles: { halign: 'center' },
-            styles: { fontSize: 9 },
-            didDrawPage: (d) => {
-              // Draw header bar on new pages generated by autoTable
-              if (d.pageNumber > 1) {
-                doc.setFillColor(63, 81, 181)
-                doc.rect(0, 0, pageWidth, 20, 'F')
-                doc.setFontSize(16)
-                doc.setTextColor(255)
-                doc.setFont(undefined, 'bold')
-                doc.text('Estatísticas do Histórico de Anotações', pageWidth / 2, 13, { align: 'center' })
-                doc.setTextColor(0)
-              }
-            }
-          })
-
-          y = doc.autoTable.previous.finalY + 8
-
-          // Add footers with page numbers
-          const totalPages = doc.getNumberOfPages()
-          for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i)
-            addFooter(i, totalPages)
-          }
-        })
-
-        doc.save(`hist_stats_${new Date().toISOString()}.pdf`)
-      } catch (e) {
-        console.error('Falha ao exportar PDF', e)
-        this.$toast?.error?.('Não foi possível exportar o PDF')
-      }
+    getPercentage (item, idx) {
+      const totalVotes = item.votes.reduce((a, b) => a + b, 0)
+      return (item.votes[idx] / totalVotes) * 100
     }
   }
 }
 </script>
 
 <style scoped>
+/* Nenhum estilo extra, o visual será herdado do tema principal */
 </style> 

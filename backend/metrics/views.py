@@ -133,6 +133,14 @@ class DatasetStatisticsAPI(APIView):
                 print("Error decoding perspective filters JSON")
                 perspective_filters = None
         
+        # Get version filter
+        version_param = request.query_params.get('version_id')
+        # Tentamos converter para inteiro; se falhar, ignoramos
+        try:
+            version_int = int(version_param) if version_param is not None else None
+        except ValueError:
+            version_int = None
+
         # Field name mapping from frontend to database
         field_mapping = {
             'updatedAt': 'updated_at',
@@ -144,7 +152,7 @@ class DatasetStatisticsAPI(APIView):
             'relationCount': None
         }
         
-        # Basic query
+        # Basic query (não filtramos Example por versão, pois a versão está nos rótulos)
         query = Example.objects.filter(project_id=project_id)
         
         # Get the total count before applying filters
@@ -380,16 +388,22 @@ class DatasetStatisticsAPI(APIView):
         # Format the entries
         entries = []
         for example in paginated_query:
-            # Get label counts for this example, filtered by matching_users_ids if available
+            # Dicionário para acumular distribuição de labels neste exemplo
             category_counts = {}
-            # Check if matching_users_ids is set (i.e., perspective filter is active and found matching users)
-            if matching_users_ids is not None: 
-                # Filter categories by users who match the perspective filters
-                categories_for_example = example.categories.filter(user__id__in=matching_users_ids)
-            else:
-                # If no perspective filter, consider all categories for the example
-                categories_for_example = example.categories.all()
 
+            # Primeiro filtramos por utilizadores (perspective) se existir
+            if matching_users_ids is not None:
+                base_categories_qs = example.categories.filter(user__id__in=matching_users_ids)
+            else:
+                base_categories_qs = example.categories.all()
+
+            # Depois aplicamos o filtro de versão, se fornecido
+            if version_int is not None:
+                categories_for_example = base_categories_qs.filter(project_version=version_int)
+            else:
+                categories_for_example = base_categories_qs
+
+            # Contabilizamos as labels
             for category in categories_for_example:
                 label_text = category.label.text
                 category_counts[label_text] = category_counts.get(label_text, 0) + 1
@@ -776,22 +790,31 @@ class DatasetReportAPI(APIView):
                         [Paragraph(example.text[:100] + "..." if len(example.text) > 100 else example.text, styles['Normal']), ""]
                     ]
                     
-                    # Get document's category distribution
-                    doc_categories = Category.objects.filter(example=example)
+                    # Dicionário para acumular distribuição de labels neste exemplo
+                    category_counts = {}
+
+                    # Primeiro filtramos por utilizadores (perspective) se existir
                     if matching_users_ids is not None:
-                        doc_categories = doc_categories.filter(user__id__in=matching_users_ids)
+                        base_categories_qs = example.categories.filter(user__id__in=matching_users_ids)
+                    else:
+                        base_categories_qs = example.categories.all()
+
+                    # Depois aplicamos o filtro de versão, se fornecido
+                    if version_int is not None:
+                        categories_for_example = base_categories_qs.filter(project_version=version_int)
+                    else:
+                        categories_for_example = base_categories_qs
+
+                    # Contabilizamos as labels
+                    for category in categories_for_example:
+                        label_text = category.label.text
+                        category_counts[label_text] = category_counts.get(label_text, 0) + 1
+
+                    category_counts = {label: count for label, count in category_counts.items() if count > 0}
                     
-                    category_counts = doc_categories.values('label__text').annotate(count=Count('label__text'))
-                    total_cats = sum(item['count'] for item in category_counts)
-                    
-                    if total_cats > 0:
-                        category_dist = {}
-                        for item in category_counts:
-                            percentage = (item['count'] / total_cats * 100)
-                            category_dist[item['label__text']] = percentage
-                        
+                    if category_counts:
                         # Create chart for this document
-                        chart = self.create_document_chart(category_dist)
+                        chart = self.create_document_chart(category_counts)
                         doc_data.append(["", chart])
                     
                     doc_table = Table(doc_data, colWidths=[300, 150])

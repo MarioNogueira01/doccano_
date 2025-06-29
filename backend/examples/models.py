@@ -76,6 +76,7 @@ class Comment(models.Model):
     example = models.ForeignKey(to=Example, on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(to=User, on_delete=models.CASCADE, null=True)
     label = models.IntegerField(null=True, blank=True, db_column="label_id")
+    project_version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 

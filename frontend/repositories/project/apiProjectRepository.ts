@@ -156,4 +156,10 @@ export class APIProjectRepository {
     const response = await this.request.post(url)
     return toModel(response.data)
   }
+
+  async listVersions(projectId: string | number) {
+    const url = `/projects/${projectId}/versions`
+    const response = await this.request.get(url)
+    return response.data
+  }
 }

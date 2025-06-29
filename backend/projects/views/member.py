@@ -18,7 +18,14 @@ class MemberList(generics.ListCreateAPIView):
     queryset = Member.objects.all()
     serializer_class = MemberSerializer
     pagination_class = None
-    permission_classes = [IsAuthenticated & IsProjectAdmin]
+
+    # GET para todos os membros; POST/DELETE apenas para Project Admin
+    def get_permissions(self):
+        if self.request.method in ["GET", "HEAD", "OPTIONS"]:
+            self.permission_classes = [IsAuthenticated & IsProjectMember]
+        else:
+            self.permission_classes = [IsAuthenticated & IsProjectAdmin]
+        return super().get_permissions()
 
     def filter_queryset(self, queryset):
         queryset = queryset.filter(project=self.kwargs["project_id"])

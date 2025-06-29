@@ -11,7 +11,8 @@ function toModel(item: { [key: string]: any }): CommentItem {
     item.username,
     item.example,
     item.text,
-    item.created_at
+    item.created_at,
+    item.label ?? null
   )
 }
 
@@ -31,7 +32,9 @@ export class APICommentRepository {
     { limit = '10', offset = '0', q = '', sortBy = '', sortDesc = '' }: SearchOption
   ): Promise<Page<CommentItem>> {
     const ordering = sortDesc === 'true' ? `-${sortBy}` : `${sortBy}`
-    const url = `/projects/${projectId}/comments?q=${q}&limit=${limit}&offset=${offset}&ordering=${ordering}`
+    const base = `/projects/${projectId}/comments`;
+    const query = `?q=${q}&limit=${limit}&offset=${offset}&ordering=${ordering}`;
+    const url = `${base}${query}`;
     const response = await this.request.get(url)
     return new Page(
       response.data.count,
@@ -41,9 +44,16 @@ export class APICommentRepository {
     )
   }
 
-  async list(projectId: string, exampleId: number, labelId?: number): Promise<CommentItem[]> {
+  async list(
+    projectId: string,
+    exampleId: number,
+    labelId?: number,
+    version?: number
+  ): Promise<CommentItem[]> {
     const labelPart = labelId !== undefined ? `&label=${labelId}` : ''
-    const url = `/projects/${projectId}/comments?example=${exampleId}${labelPart}&limit=100`
+    const versionPart = version !== undefined ? `&version=${version}` : ''
+    const base = `/projects/${projectId}/comments?example=${exampleId}`
+    const url = `${base}${labelPart}${versionPart}&limit=100`
     const response = await this.request.get(url)
     return response.data.results.map((item: { [key: string]: any }) => toModel(item))
   }
@@ -52,10 +62,13 @@ export class APICommentRepository {
     projectId: string,
     exampleId: number,
     text: string,
-    labelId?: number
+    labelId?: number,
+    version?: number
   ): Promise<CommentItem> {
     const labelPart = labelId !== undefined ? `&label=${labelId}` : ''
-    const url = `/projects/${projectId}/comments?example=${exampleId}${labelPart}`
+    const versionPart = version !== undefined ? `&version=${version}` : ''
+    const base = `/projects/${projectId}/comments?example=${exampleId}`
+    const url = `${base}${labelPart}${versionPart}`
     const response = await this.request.post(url, { text })
     return toModel(response.data)
   }

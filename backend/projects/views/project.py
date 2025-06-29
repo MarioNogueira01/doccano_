@@ -102,7 +102,18 @@ class DiscrepancyAnalysisView(APIView):
         try:
             project = get_object_or_404(Project, id=project_id)
             discrepancy_threshold = 70
+            # Filtra exemplos do projecto.
             examples = Example.objects.filter(project_id=project_id)
+
+            # Determina a versão que será usada para o cálculo das discrepâncias.
+            # Se o cliente enviar ?version=<numero>, utiliza-se esse valor; caso contrário,
+            # recorre-se à versão actualmente aberta do projecto (project.project_version).
+            version_param = request.query_params.get("version")
+            try:
+                selected_version = int(version_param) if version_param is not None else project.project_version
+            except ValueError:
+                # Caso o parâmetro não seja um inteiro válido, assume-se a versão actual.
+                selected_version = project.project_version
 
             if not examples.exists():
                 raise NotFound("No examples found for this project.")
@@ -121,12 +132,13 @@ class DiscrepancyAnalysisView(APIView):
 
             discrepancies = []
             for example in examples:
-                # Get annotations with user information
-                labels = example.categories.values(
-                    'label', 
-                    'label__text', 
-                    'user'
-                ).annotate(count=Count('label'))
+                # Obtém as anotações desta example apenas para a versão seleccionada.
+                labels = (
+                    example.categories
+                    .filter(project_version=selected_version)
+                    .values('label', 'label__text', 'user')
+                    .annotate(count=Count('label'))
+                )
                 
                 total_labels = sum(label['count'] for label in labels)
                 if total_labels == 0:

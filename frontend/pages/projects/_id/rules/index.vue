@@ -37,6 +37,14 @@
       <v-btn v-if="isAdmin" color="info" class="ml-2" @click="goToVotedRules">
         View Voted Rules
       </v-btn>
+      <!-- Novo botão para abrir chat de discussão -->
+      <v-btn color="secondary" class="ml-2" @click="goToDiscussion">
+        Discussão
+      </v-btn>
+      <!-- Novo botão para visualizar histórico de discussões -->
+      <v-btn color="info" class="ml-2" @click="goToDiscussionHistory">
+        Histórico de Discussões
+      </v-btn>
     </div>
 
     <!-- Overlay para criar uma pergunta -->
@@ -111,7 +119,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-    
   </v-card>
 </template>
 
@@ -337,6 +344,12 @@ export default {
       this.$router.push({ 
         path: `/projects/${this.projectId}/rules/votedResults`
       });
+    },
+    goToDiscussion() {
+      this.$router.push({ path: `/projects/${this.projectId}/rules/discussion` })
+    },
+    goToDiscussionHistory() {
+      this.$router.push({ path: `/projects/${this.projectId}/rules/discussion-history` })
     },
   },
 };

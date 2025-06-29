@@ -66,15 +66,6 @@
           </div>
         </div>
       </template>
-      <template #[`item.history`]="{ item }">
-        <v-btn
-          small
-          color="info"
-          @click="openHistory(item.sessionId, item._index)"
-        >
-          History
-        </v-btn>
-      </template>
     </v-data-table>
 
     <!-- Botão para voltar -->
@@ -98,24 +89,11 @@
         <v-btn text v-bind="attrs" @click="snackbarError = false">Close</v-btn>
       </template>
     </v-snackbar>
-
-    <v-dialog v-model="dialogHistory" max-width="600px">
-      <RuleChat
-        v-if="dialogHistory"
-        :project-id="projectId"
-        :session-id="historySessionId"
-        :question-index="historyQuestionIndex"
-        :read-only="true"
-      />
-    </v-dialog>
   </v-card>
 </template>
 
 <script>
-import RuleChat from '~/components/rules/RuleChat.vue'
-
 export default {
-  components: { RuleChat },
   layout: 'project',
   middleware: ['check-auth', 'auth', 'setCurrentProject'],
   data() {
@@ -133,11 +111,7 @@ export default {
         { text: 'Rule', value: 'question' },
         { text: 'Votes', value: 'votes' },
         { text: 'Participation', value: 'participation' },
-        { text: 'History', value: 'history', sortable: false },
       ],
-      dialogHistory: false,
-      historySessionId: null,
-      historyQuestionIndex: null,
     };
   },
   computed: {
@@ -327,11 +301,6 @@ export default {
     },
     goBack() {
       this.$router.back();
-    },
-    openHistory(sessionId, questionIndex) {
-      this.historySessionId = sessionId;
-      this.historyQuestionIndex = questionIndex;
-      this.dialogHistory = true;
     },
   },
 };

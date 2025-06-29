@@ -143,4 +143,8 @@ export class ProjectApplicationService {
       return [];
     }
   }
+
+  public async listVersions(projectId: string | number) {
+    return await this.repository.listVersions(projectId)
+  }
 }

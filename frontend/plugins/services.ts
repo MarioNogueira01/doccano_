@@ -20,6 +20,7 @@ import { RulesApplicationService } from '~/services/application/rules/rulesAppli
 import { VotingApplicationService } from '~/services/application/votationrules/votingApplicationService'
 import { AnswerRuleApplicationService } from '~/services/application/ruleanswer/rulesAnswerApplicationService'
 import { RuleDiscussionApplicationService } from '~/services/application/ruleDiscussion/ruleDiscussionApplicationService'
+import { ProjectDiscussionApplicationService } from '~/services/application/projectDiscussion/projectDiscussionApplicationService'
 
 export interface Services {
   categoryType: LabelApplicationService
@@ -42,12 +43,13 @@ export interface Services {
   voting : VotingApplicationService
   answer: AnswerRuleApplicationService
   ruleDiscussion: RuleDiscussionApplicationService
+  projectDiscussion: ProjectDiscussionApplicationService
   label: LabelApplicationService
 }
 
 declare module 'vue/types/vue' {
   interface Vue {
-    readonly $services: Services
+    $services: Services
   }
 }
 
@@ -73,9 +75,10 @@ const plugin: Plugin = (_, inject) => {
     voting: new VotingApplicationService(repositories.voting),
     answer: new AnswerRuleApplicationService(repositories.answer),
     ruleDiscussion: new RuleDiscussionApplicationService(repositories.ruleDiscussion),
+    projectDiscussion: new ProjectDiscussionApplicationService(),
 
-    perspective: new PerspectiveApplicationService(repositories.perspective), // Add this line
-    discrepancy: new DiscrepacieApplicationService(repositories.discrepancy), // Add this line
+    perspective: new PerspectiveApplicationService(repositories.perspective),
+    discrepancy: new DiscrepacieApplicationService(repositories.discrepancy),
     annotation: new AnnotationApplicationService(repositories.annotation),
     label: new LabelApplicationService(repositories.label)
   }

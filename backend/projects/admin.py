@@ -15,6 +15,7 @@ from .models import (
     Perspective,
     PerspectiveAnswer,
     RuleDiscussionMessage,
+    ProjectDiscussionMessage,
     Version,
 )
 
@@ -93,5 +94,6 @@ admin.site.register(PerspectiveGroup)
 admin.site.register(Perspective)
 admin.site.register(PerspectiveAnswer)
 admin.site.register(RuleDiscussionMessage)
+admin.site.register(ProjectDiscussionMessage)
 admin.site.register(Version, VersionAdmin)
 

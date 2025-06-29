@@ -14,13 +14,6 @@
             :loading="loadingSecondTable"
             @onSubmit="(res) => submitResponses(session, res)"
           />
-          <RuleChat
-            :project-id="$route.params.id"
-            :session-id="session.id"
-            :question-index="0"
-            @critical-error="handleCriticalError"
-            @error="handleChatError"
-          />
         </v-expansion-panel-content>
       </v-expansion-panel>
     </v-expansion-panels>
@@ -29,6 +22,9 @@
       <v-spacer />
       <v-btn color="secondary" @click="closePage">
         Fechar
+      </v-btn>
+      <v-btn color="primary" class="mr-2" @click="showProjectChat = true">
+        Discussão
       </v-btn>
     </v-card-actions>
 
@@ -90,6 +86,11 @@
       </template>
     </v-snackbar>
 
+    <!-- Diálogo para chat de discussão do projeto -->
+    <v-dialog v-model="showProjectChat" max-width="600px">
+      <ProjectChat :project-id="$route.params.id" />
+    </v-dialog>
+
     <!-- Remove or comment out the old error dialog
     <v-dialog v-model="showErrorDialog" max-width="500px" persistent>
       ... existing dialog content ...
@@ -101,9 +102,9 @@
 <script>
 import StringTableWithResponse from '~/components/rules/stringTableWithResponse.vue';
 import StringTableAdmin from '~/components/rules/stringTableAdmin.vue';
-import RuleChat from '~/components/rules/RuleChat.vue'
+import ProjectChat from '~/components/ProjectChat.vue'
 export default {
-  components: { StringTableWithResponse, StringTableAdmin, RuleChat },
+  components: { StringTableWithResponse, StringTableAdmin, ProjectChat },
   data() {
     return {
       rulesSecondTable: [],
@@ -119,6 +120,7 @@ export default {
       pageError: null,
       showErrorDialog: false,
       errorMessage: '',
+      showProjectChat: false,
     };
   },
   computed: {

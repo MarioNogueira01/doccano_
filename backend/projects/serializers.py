@@ -25,6 +25,7 @@ from .models import (
     VotingSessionAnswer,
     RuleDiscussionMessage,
     Version,
+    ProjectDiscussionMessage,
 )
 
 
@@ -276,6 +277,15 @@ class RuleDiscussionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RuleDiscussionMessage  # type: ignore  # defined in models
+        fields = ['id', 'message', 'username', 'created_at']
+        read_only_fields = ['id', 'username', 'created_at']
+
+class ProjectDiscussionSerializer(serializers.ModelSerializer):
+    """Serializer para as mensagens de discussão global do projeto."""
+    username = serializers.CharField(source='created_by.username', read_only=True)
+
+    class Meta:
+        model = ProjectDiscussionMessage  # type: ignore  # defined em models
         fields = ['id', 'message', 'username', 'created_at']
         read_only_fields = ['id', 'username', 'created_at']
 

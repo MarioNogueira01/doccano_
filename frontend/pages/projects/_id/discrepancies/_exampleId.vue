@@ -19,55 +19,9 @@
           <p style="white-space: pre-wrap">{{ example?.text }}</p>
         </v-card>
 
-        <!-- Comparação de Anotações -->
-        <v-card outlined class="mb-6 pa-4">
-          <div class="d-flex align-center mb-4">
-            <h3 class="subtitle-1 mr-4 mb-0">Comparação de Anotações</h3>
-            <v-select
-              v-if="labelOptions.length"
-              v-model="selectedLabelId"
-              :items="labelOptions"
-              item-text="text"
-              item-value="id"
-              dense
-              hide-details
-              outlined
-              style="max-width: 200px"
-              label="Label"
-              @change="onLabelChange"
-            />
-          </div>
-          <div v-if="annotations.length === 0" class="text-center grey--text caption">
-            Sem anotações para comparar.
-          </div>
-          <v-row v-else>
-            <v-col
-              v-for="ann in annotations"
-              :key="ann.user"
-              cols="6"
-              class="pb-4"
-            >
-              <strong :style="{ color: getUserColor(ann.user) }">{{ ann.user }}</strong>
-              <div class="mt-2">
-                <v-chip
-                  v-for="label in ann.labels"
-                  :key="label"
-                  small
-                  class="ma-1 clickable-chip"
-                  :color="getUserColor(ann.user)"
-                  text-color="white"
-                  @click="handleChipClick(label)"
-                >
-                  {{ label }}
-                </v-chip>
-              </div>
-            </v-col>
-          </v-row>
-        </v-card>
-
         <!-- Painel de Discussão -->
         <v-card outlined>
-          <h3 class="subtitle-1 pa-4 pb-0">Discussão - Label {{ currentLabelText }}</h3>
+          <h3 class="subtitle-1 pa-4 pb-0">Discussão</h3>
           <!-- Filtro por anotador -->
           <v-row class="px-4 pt-2" align="center">
             <v-select
@@ -150,7 +104,8 @@ export default {
         dbErrorMessage: '',
         userColorMap: {},
         annotatorOptions: [],
-        selectedAnnotator: null
+        selectedAnnotator: null,
+        selectedVersion: null
       }
     } catch (e) {
       error({ statusCode: 404, message: 'Exemplo não encontrado' })
@@ -158,10 +113,6 @@ export default {
   },
   computed: {
     ...mapGetters('auth', ['getUsername']),
-    currentLabelText() {
-      const opt = this.labelOptions.find((o) => o.id === this.selectedLabelId)
-      return opt ? opt.text : ''
-    },
     filteredComments() {
       if (!this.selectedAnnotator || this.selectedAnnotator === 'Todos') {
         return this.comments
@@ -170,67 +121,17 @@ export default {
     }
   },
   mounted() {
-    this.fetchAnnotations()
+    this.selectedVersion = this.$route.query.version ? Number(this.$route.query.version) : null;
+    this.fetchComments()
   },
   methods: {
-    async fetchAnnotations() {
-      try {
-        const urlCat = `/projects/${this.projectId}/examples/${this.exampleId}/categories`
-        const response = await ApiService.get(urlCat, { params: { all: 1 } })
-        const categories = response.data
-        // fetch label types to map id->text
-        const labelTypes = await this.$services.categoryType.list(this.projectId)
-        const labelMap = Object.fromEntries(labelTypes.map((l) => [l.id, l.text]))
-        // fetch member list for username mapping
-        const members = await this.$repositories.member.list(this.projectId)
-        // Mapear id de utilizador -> username correcto (campo `user` no MemberItem)
-        const userMap = Object.fromEntries(members.map((m) => [m.user, m.username]))
-
-        // collect label info and group users by label
-        const groupedByLabel = {}
-        categories.forEach((c) => {
-          const user = userMap[c.user] || c.user
-          const labelId = c.label
-          const labelText = labelMap[labelId] || labelId
-          if (!groupedByLabel[labelId]) groupedByLabel[labelId] = { text: labelText, users: {} }
-          if (!groupedByLabel[labelId].users[user]) groupedByLabel[labelId].users[user] = new Set()
-          groupedByLabel[labelId].users[user].add(labelText)
-        })
-
-        // Apenas labels anotadas pelo utilizador actual devem aparecer no selector.
-        const selfUser = this.getUsername
-        const userLabelEntries = Object.entries(groupedByLabel)
-          .filter(([_, v]) => v.users[selfUser])
-
-        this.labelOptions = userLabelEntries.map(([id, v]) => ({
-          id: Number(id),
-          text: v.text
-        }))
-        if (this.selectedLabelId === null && this.labelOptions.length) {
-          this.selectedLabelId = this.labelOptions[0].id
-        }
-        this.groupedByLabel = groupedByLabel
-        this.buildAnnotations(groupedByLabel)
-        if (this.selectedLabelId) this.fetchComments()
-      } catch (err) {
-        console.error('Failed to fetch annotations', err)
-        this.annotations = []
-        // mostrar snackbar se BD indisponível
-        if (!err.response || (err.response.status && err.response.status >= 500)) {
-          this.dbErrorMessage = 'Database unavailable at the moment, please try again later.'
-        } else {
-          this.dbErrorMessage = err.response?.data?.detail || 'Erro ao obter anotações.'
-        }
-        this.dbErrorVisible = true
-      }
-    },
     async fetchComments() {
       try {
-        if (this.selectedLabelId === null) { this.comments = []; return }
         const fetched = await this.$repositories.comment.list(
           this.projectId,
           Number(this.exampleId),
-          this.selectedLabelId
+          undefined,
+          this.selectedVersion ?? undefined
         )
         this.comments = fetched
 
@@ -262,7 +163,8 @@ export default {
           this.projectId,
           Number(this.exampleId),
           this.newComment,
-          this.selectedLabelId
+          undefined,
+          this.selectedVersion ?? undefined
         )
         this.comments.push(newComment)
         // Se o novo comentador não estiver nas opções, adicionar
@@ -278,27 +180,6 @@ export default {
           this.dbErrorMessage = err.response?.data?.detail || 'Erro ao enviar comentário.'
         }
         this.dbErrorVisible = true
-      }
-    },
-    buildAnnotations(grouped) {
-      if (!this.selectedLabelId) { this.annotations = []; return }
-      const entry = grouped[this.selectedLabelId]
-      if (!entry) { this.annotations = []; return }
-      this.annotations = Object.entries(entry.users).map(([user, labels]) => ({
-        user,
-        labels: Array.from(labels)
-      }))
-    },
-    onLabelChange() {
-      this.comments = []
-      this.buildAnnotations(this.groupedByLabel)
-      this.fetchComments()
-    },
-    handleChipClick(labelText) {
-      const opt = this.labelOptions.find((o) => o.text === labelText)
-      if (opt) {
-        this.selectedLabelId = opt.id
-        this.onLabelChange()
       }
     },
     getUserColor(username) {

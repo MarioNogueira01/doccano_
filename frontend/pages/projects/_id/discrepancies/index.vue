@@ -23,6 +23,16 @@
           ></v-text-field>
         </v-col>
         <v-col cols="12" sm="6" class="text-right">
+          <!-- Select de Versão -->
+          <v-select
+            v-model="selectedVersion"
+            :items="versions"
+            label="Version"
+            dense
+            class="mr-4"
+            style="max-width: 120px;"
+          ></v-select>
+
           <v-btn-toggle
             v-model="sortOrder"
             mandatory
@@ -325,6 +335,7 @@
 
 <script>
 import { usePerspectiveApplicationService } from '@/services/application/perspective/perspectiveApplicationService'
+import ApiService from '@/services/api.service'
 
 export default {
   layout: 'project',
@@ -356,7 +367,9 @@ export default {
       selectedDiscrepancy: null,
       selectedDatasetLabel: '',
       selectedPercentage: null,
-      autoGenerate: false // nova propriedade para controle de geração automática
+      autoGenerate: false, // nova propriedade para controle de geração automática
+      selectedVersion: null, // versão actualmente seleccionada
+      versions: [], // opções de versão disponíveis
     };
   },
 
@@ -502,11 +515,20 @@ export default {
         localStorage.setItem(`perspectiveFilters-${this.projectId}`, JSON.stringify(newVal));
       },
       deep: true
+    },
+    // Quando o utilizador muda de versão, recarregamos os dados
+    selectedVersion() {
+      this.refreshTable();
     }
   },
 
   async created() {
     this.loadSelectedAnswers();
+    await this.fetchVersions();
+    // Se não existir selectedVersion (primeira carga), define-o como a versão corrente do projecto
+    if (!this.selectedVersion && this.versions.length > 0) {
+      this.selectedVersion = Math.max(...this.versions); // assume versão mais recente
+    }
     await this.fetchDiscrepancies();
     await this.fetchPerspectiveGroups();
   },
@@ -523,9 +545,25 @@ export default {
         }
       }
     },
+    async fetchVersions() {
+      try {
+        const url = `/projects/${this.projectId}/versions`;
+        const response = await ApiService.get(url);
+        // Extrai números de versão a partir da resposta
+        this.versions = response.data.versions.map(v => v.version).sort((a, b) => a - b);
+        // Define selectedVersion se ainda não estiver definido
+        if (!this.selectedVersion && response.data.project) {
+          this.selectedVersion = response.data.project.current_version;
+        }
+      } catch (e) {
+        console.error('Erro ao obter versões do projecto', e);
+      }
+    },
     async fetchDiscrepancies() {
       try {
-        const response = await this.$services.discrepancy.listDiscrepancie(this.projectId);
+        const params = {};
+        if (this.selectedVersion) params.version = this.selectedVersion;
+        const response = await this.$services.discrepancy.listDiscrepancie(this.projectId, params);
         const dbResponse = await this.$services.discrepancy.getDiscrepanciesDB(this.projectId);
         console.log('Discrepancies from DB:', dbResponse);
         console.log('Discrepancies fetched:', response);
@@ -685,7 +723,14 @@ export default {
     },
 
     goToDiscussion(item) {
-      this.$router.push(this.localePath(`/projects/${this.projectId}/discrepancies/${item.id}`));
+      if (this.selectedVersion) {
+        this.$router.push({
+          path: this.localePath(`/projects/${this.projectId}/discrepancies/${item.id}`),
+          query: { version: this.selectedVersion }
+        })
+      } else {
+        this.$router.push(this.localePath(`/projects/${this.projectId}/discrepancies/${item.id}`))
+      }
     },
 
     onStatusClick(discrepancy, label, percentage) {

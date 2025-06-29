@@ -47,6 +47,8 @@ import { ApiStatsRepository } from '@/repositories/stats/apiStatsRepository'
 
 import { APIDiscrepancyHistoryRepository } from '@/repositories/discrepancyHistory/apiDiscrepancyHistoryRepository'
 
+import { ApiProjectDiscussionRepository } from '~/repositories/projectDiscussion/apiProjectDiscussionRepository'
+
 export interface Repositories {
   // User
   auth: APIAuthRepository
@@ -117,11 +119,13 @@ export interface Repositories {
   stats: ApiStatsRepository
 
   discrepancyHistory: APIDiscrepancyHistoryRepository
+
+  projectDiscussion: ApiProjectDiscussionRepository
 }
 
 declare module 'vue/types/vue' {
   interface Vue {
-    readonly $repositories: Repositories
+    $repositories: Repositories
   }
 }
 
@@ -195,7 +199,9 @@ const repositories: Repositories = {
 
   stats: new ApiStatsRepository(),
 
-  discrepancyHistory: new APIDiscrepancyHistoryRepository()
+  discrepancyHistory: new APIDiscrepancyHistoryRepository(),
+
+  projectDiscussion: new ApiProjectDiscussionRepository()
 }
 
 const plugin: Plugin = (_, inject) => {
