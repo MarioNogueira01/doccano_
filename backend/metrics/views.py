@@ -141,6 +141,9 @@ class DatasetStatisticsAPI(APIView):
         except ValueError:
             version_int = None
 
+        # Novo: filtro opcional por dataset (nome do ficheiro de upload)
+        dataset_name = request.query_params.get('dataset')
+
         # Field name mapping from frontend to database
         field_mapping = {
             'updatedAt': 'updated_at',
@@ -154,6 +157,10 @@ class DatasetStatisticsAPI(APIView):
         
         # Basic query (não filtramos Example por versão, pois a versão está nos rótulos)
         query = Example.objects.filter(project_id=project_id)
+        
+        if dataset_name not in [None, '', 'null']:
+            print(f"DEBUG: Filtering by dataset upload_name={dataset_name}")
+            query = query.filter(upload_name=dataset_name)
         
         # Get the total count before applying filters
         total = query.count()
@@ -412,7 +419,8 @@ class DatasetStatisticsAPI(APIView):
                 'id': example.id,
                 'text': example.text[:100] + '...' if len(example.text) > 100 else example.text,
                 'annotated': example.states.exists(),
-                'categoryCount': categories_for_example.count(), # Update count based on filtered categories
+                'dataset': example.upload_name,  # incluir nome do dataset
+                'categoryCount': categories_for_example.count(),  # Update count based on filtered categories
                 'spanCount': example.spans.count(),
                 'relationCount': example.relations.count(),
                 'updatedAt': example.updated_at.strftime('%Y-%m-%d %H:%M:%S'),

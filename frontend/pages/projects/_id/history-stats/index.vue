@@ -15,6 +15,34 @@
               class="mr-4"
               @change="fetchStats"
             />
+            <!-- Filtro Dataset -->
+            <v-select
+              v-model="selectedDataset"
+              :items="datasetOptions"
+              item-text="text"
+              item-value="value"
+              label="Dataset"
+              dense
+              hide-details
+              clearable
+              style="max-width:200px"
+              class="mr-4"
+            />
+
+            <!-- Filtro Acordo -->
+            <v-select
+              v-model="selectedAgreement"
+              :items="agreementOptions"
+              label="Agreement"
+              dense
+              hide-details
+              clearable
+              style="max-width:160px"
+              class="mr-4"
+            />
+            <v-btn color="primary" class="mr-2" @click.prevent="generateReport">
+              Generate Report
+            </v-btn>
             <v-spacer></v-spacer>
             <!-- Export buttons (placeholder) -->
             <v-btn color="primary" outlined class="mr-2" @click="exportCSV">
@@ -28,6 +56,69 @@
           <v-divider />
 
           <v-card-text>
+            <v-expansion-panels flat>
+              <v-expansion-panel>
+                <v-expansion-panel-header>
+                  Perspective
+                  <template #actions>
+                    <v-icon color="primary">mdi-filter-variant</v-icon>
+                  </template>
+                </v-expansion-panel-header>
+                <v-expansion-panel-content>
+                  <v-container>
+                    <v-row v-for="group in perspectiveGroups" :key="group.id">
+                      <v-col cols="12">
+                        <h3>{{ group.name }}</h3>
+                        <v-row v-for="question in group.questions" :key="question.id">
+                          <v-col cols="12">
+                            <v-select
+                              v-if="question.data_type === 'string' && question.options.length > 0"
+                              v-model="selectedPerspectiveAnswers[question.id]"
+                              :items="question.options.map(String)"
+                              :label="question.question"
+                              multiple
+                              chips
+                              deletable-chips
+                              clearable
+                            />
+                            <v-select
+                              v-else-if="question.data_type === 'boolean'"
+                              v-model="selectedPerspectiveAnswers[question.id]"
+                              :items="['Yes', 'No']"
+                              :label="question.question"
+                              multiple
+                              chips
+                              deletable-chips
+                              clearable
+                            />
+                            <v-text-field
+                              v-else-if="question.data_type === 'int'"
+                              v-model="selectedPerspectiveAnswers[question.id]"
+                              :label="question.question"
+                              type="number"
+                              clearable
+                              placeholder="Enter a number"
+                            />
+                            <v-text-field
+                              v-else
+                              v-model="selectedPerspectiveAnswers[question.id]"
+                              :label="question.question"
+                              clearable
+                              placeholder="Enter text"
+                            />
+                          </v-col>
+                        </v-row>
+                      </v-col>
+                    </v-row>
+                  </v-container>
+                  <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="clearPerspectiveFilters">Limpar Filtros</v-btn>
+                  </v-card-actions>
+                </v-expansion-panel-content>
+              </v-expansion-panel>
+            </v-expansion-panels>
+
             <v-data-table
               :headers="headers"
               :items="stats"
@@ -89,7 +180,19 @@ export default {
         { text: 'Text', value: 'text' },
         { text: 'Status', value: 'status' },
         { text: 'Label Distribution', value: 'chart', sortable: false }
-      ]
+      ],
+      perspectiveGroups: [],
+      selectedPerspectiveAnswers: {},
+      // Dataset & Agreement filtros
+      datasetOptions: [{ text: 'All Datasets', value: null }],
+      selectedDataset: null,
+      agreementOptions: [
+        { text: 'All', value: null },
+        { text: 'Agreement', value: 'agreement' },
+        { text: 'Disagreement', value: 'disagreement' }
+      ],
+      selectedAgreement: null,
+      discrepancyIds: new Set()
     }
   },
   computed: {
@@ -99,6 +202,9 @@ export default {
   },
   mounted () {
     this.loadVersions()
+    this.loadPerspectiveGroups()
+    this.loadDatasets()
+    this.loadDiscrepancies()
   },
   methods: {
     async loadVersions () {
@@ -115,12 +221,60 @@ export default {
         this.fetchStats()
       }
     },
+    async loadPerspectiveGroups () {
+      try {
+        const response = await this.$services.perspective.listPerspectiveGroups(
+          this.$route.params.id
+        ) // eslint-disable-line max-len
+        this.perspectiveGroups = response.results || response.data?.results || []
+      } catch (e) {
+        console.error('Failed to load perspective groups', e)
+      }
+    },
+    async loadDatasets () {
+      try {
+        const data = await this.$repositories.stats.datasets(this.$route.params.id)
+        this.datasetOptions = [{ text: 'All Datasets', value: null }, ...data]
+      } catch (e) {
+        console.error('Erro ao carregar datasets', e)
+      }
+    },
+    async loadDiscrepancies () {
+      try {
+        const resp = await this.$repositories.discrepancy.list(this.$route.params.id)
+        const list = resp.discrepancies || resp || []
+        this.discrepancyIds = new Set(list.filter(d => d.is_discrepancy).map(d => d.id))
+      } catch (e) {
+        console.error('Erro ao buscar discrepâncias', e)
+        this.discrepancyIds = new Set()
+      }
+    },
+    clearPerspectiveFilters () {
+      this.selectedPerspectiveAnswers = {}
+    },
+    generateReport () {
+      this.fetchStats()
+    },
     fetchStats () {
       const params = new URLSearchParams()
       params.append('page', '1')
       params.append('page_size', '100')
       if (this.selectedVersionId) {
         params.append('version_id', this.selectedVersionId)
+      }
+      if (this.selectedDataset !== null) {
+        params.append('dataset', this.selectedDataset)
+      }
+      // Construir objeto apenas com respostas preenchidas
+      const activePerspectiveFilters = Object.fromEntries(
+        Object.entries(this.selectedPerspectiveAnswers)
+          .filter(([_, v]) => {
+            if (Array.isArray(v)) { return v.length > 0 }
+            return v !== null && v !== undefined && v !== ''
+          })
+      )
+      if (Object.keys(activePerspectiveFilters).length > 0) {
+        params.append('perspective_filters', JSON.stringify(activePerspectiveFilters))
       }
       const url = params.toString() ? `?${params.toString()}` : ''
       this.$repositories.metrics.fetchDatasetStatistics(this.$route.params.id, url)
@@ -129,7 +283,7 @@ export default {
             this.stats = []
             return
           }
-          this.stats = data.entries.map((e) => {
+          const mapped = data.entries.map((e) => {
             const labels = Object.keys(e.labelDistribution || {})
             const votesArr = labels.map((l) => e.labelDistribution[l])
             return {
@@ -140,6 +294,15 @@ export default {
               votes: votesArr.length ? votesArr : [0],
             }
           })
+          // Marcar acordo/disacordo baseado em discrepâncias
+          mapped.forEach(m => {
+            m.agreement = this.discrepancyIds.has(m.id) ? 'disagreement' : 'agreement'
+          })
+
+          // Filtrar por acordo se necessário
+          this.stats = this.selectedAgreement
+            ? mapped.filter(m => m.agreement === this.selectedAgreement)
+            : mapped
         })
         .catch((err) => {
           console.error('Erro ao buscar estatísticas:', err)
@@ -195,55 +358,80 @@ export default {
     async exportPDF () {
       try {
         const JsPDF = await this.loadJsPDF()
+        // eslint-disable-next-line new-cap
         const doc = new JsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-        const margin = 15
+
         const pageWidth = doc.internal.pageSize.getWidth()
+        const pageHeight = doc.internal.pageSize.getHeight()
+        const margin = 18
 
-        // Título
-        doc.setFontSize(18)
-        doc.text('History Statistics', pageWidth / 2, 20, { align: 'center' })
+        // Cabeçalho (barra azul)
+        const drawHeader = () => {
+          doc.setFillColor(63, 81, 181)
+          doc.rect(0, 0, pageWidth, 20, 'F')
+          doc.setFontSize(16)
+          doc.setTextColor(255, 255, 255)
+          doc.setFont(undefined, 'bold')
+          doc.text('History Statistics', pageWidth / 2, 13, { align: 'center' })
 
-        // Informação da versão
-        const versionText = this.selectedVersionId ? `Version: v${this.selectedVersionId}` : 'All versions'
-        doc.setFontSize(12)
-        doc.text(versionText, margin, 30)
+          // Sub-título com versão
+          doc.setFontSize(9)
+          const versionTxt = this.selectedVersionId ? `Version: v${this.selectedVersionId}` : 'All versions'
+          doc.text(versionTxt, margin, 17)
+          doc.setTextColor(0)
+        }
 
-        // Montar dados para a tabela
-        const tableHead = [['ID', 'Text', 'Status', 'Label', '%']]
-        const tableBody = []
+        drawHeader()
 
-        this.stats.forEach((item) => {
+        const addFooter = (pageNum, totalPages) => {
+          doc.setFontSize(8)
+          doc.setTextColor(150)
+          doc.text(`Página ${pageNum} / ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' })
+          doc.setTextColor(0)
+        }
+
+        // Preparar dados da tabela sem informação repetida
+        const tableBody = this.stats.map(item => {
           const total = item.votes.reduce((a, b) => a + b, 0) || 1
-          item.labels.forEach((label, idx) => {
-            tableBody.push([
-              String(item.id),
-              item.text.substring(0, 60) + (item.text.length > 60 ? '...' : ''),
-              item.annotated ? 'Annotated' : 'Pending',
-              label,
-              ((item.votes[idx] / total) * 100).toFixed(1) + '%'
-            ])
-          })
+          const dist = item.labels.map((label, idx) => {
+            const perc = ((item.votes[idx] / total) * 100).toFixed(1)
+            return `${label} (${perc}%)`
+          }).join(', ')
+          return [
+            String(item.id),
+            item.text.substring(0, 60) + (item.text.length > 60 ? '...' : ''),
+            item.annotated ? 'Annotated' : 'Pending',
+            dist
+          ]
         })
 
-        // @ts-ignore autoTable disponible no runtime
         doc.autoTable({
-          startY: 40,
-          head: tableHead,
+          head: [['ID', 'Text', 'Status', 'Label Distribution']],
           body: tableBody,
+          startY: 25, // imediatamente após o cabeçalho
           margin: { left: margin, right: margin },
           theme: 'grid',
           styles: { fontSize: 9 },
-          headStyles: { fillColor: [63, 81, 181], textColor: 255 },
+          headStyles: { fillColor: [63, 81, 181], halign: 'center', valign: 'middle', textColor: 255 },
+          bodyStyles: { halign: 'center' },
+          didDrawPage: (data) => {
+            if (data.pageNumber > 1) {
+              drawHeader()
+            }
+          }
         })
 
-        // Abrir em nova aba
-        const pdfBlob = doc.output('blob')
-        const url = URL.createObjectURL(pdfBlob)
-        window.open(url, '_blank')
-        this.$toasted?.success('PDF aberto em nova aba')
+        // Adicionar rodapé em todas as páginas
+        const totalPages = doc.getNumberOfPages()
+        for (let i = 1; i <= totalPages; i++) {
+          doc.setPage(i)
+          addFooter(i, totalPages)
+        }
+
+        doc.save(`history_stats_${new Date().toISOString()}.pdf`)
       } catch (e) {
-        console.error('Erro exportando PDF', e)
-        this.$toasted?.error('Falha ao exportar PDF')
+        console.error('Falha ao exportar PDF', e)
+        this.$toasted?.error('Não foi possível exportar o PDF')
       }
     },
     async loadJsPDF () {
