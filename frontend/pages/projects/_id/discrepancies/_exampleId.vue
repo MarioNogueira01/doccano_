@@ -34,21 +34,45 @@
               style="max-width: 200px"
             />
           </v-row>
-          <v-list dense two-line class="py-0">
-            <v-list-item v-for="c in filteredComments" :key="c.id">
-              <v-list-item-content>
-                <v-list-item-title
+          <v-list
+            dense
+            two-line
+            v-if="false"
+            class="py-0"
+          >
+            <!-- ref -->
+          </v-list>
+          <!-- Lista de comentários estilo chat -->
+          <div class="chat-container px-4 pt-2">
+            <div
+              v-for="c in filteredComments"
+              :key="c.id"
+              class="d-flex mb-3"
+              :class="{
+                'justify-end': c.username === getUsername,
+                'justify-start': c.username !== getUsername
+              }"
+            >
+              <div
+                class="chat-bubble"
+                :class="c.username === getUsername ? 'bubble--mine' : 'bubble--other'"
+              >
+                <div
+                  v-if="c.username !== getUsername"
+                  class="chat-username"
                   :style="{ color: getUserColor(c.username) }"
                 >
                   {{ c.username }}
-                </v-list-item-title>
-                <v-list-item-subtitle>{{ c.text }}</v-list-item-subtitle>
-              </v-list-item-content>
-              <v-list-item-action-text class="grey--text text-caption">
-                {{ formatTime(c.createdAt) }}
-              </v-list-item-action-text>
-            </v-list-item>
-          </v-list>
+                </div>
+                <div class="chat-text">{{ c.text }}</div>
+                <div
+                  class="chat-time grey--text text-caption text-right mt-1"
+                >
+                  {{ formatTime(c.createdAt) }}
+                </div>
+              </div>
+            </div>
+          </div>
           <v-divider />
           <v-card-actions>
             <v-text-field
@@ -215,5 +239,34 @@ export default {
 
 .clickable-chip {
   cursor: pointer;
+}
+
+.chat-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.chat-bubble {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.bubble--mine {
+  background-color: #dcf8c6; /* verde WhatsApp */
+  color: #000;
+}
+.bubble--other {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  color: #000;
+}
+.chat-username {
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.chat-text {
+  white-space: pre-wrap;
 }
 </style> 

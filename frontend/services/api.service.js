@@ -67,8 +67,29 @@ class ApiService {
     return this.request('patch', url, data, config)
   }
 
-  delete(url, config = {}) {
-    return this.request('delete', url, {}, config)
+  delete(url, dataOrConfig = {}, config = {}) {
+    // Para manter compatibilidade com chamadas existentes, verificamos se o segundo
+    // argumento parece ser um objeto de configuração (já contém a chave `data` ou
+    // outras chaves típicas de config). Caso afirmativo, delegamos tal qual era
+    // antes. Caso contrário, consideramos que o segundo argumento contém o corpo
+    // da requisição e passamos opcionalmente um terceiro argumento de config.
+    if (
+      dataOrConfig &&
+      typeof dataOrConfig === 'object' &&
+      !Array.isArray(dataOrConfig) &&
+      (
+        Object.prototype.hasOwnProperty.call(dataOrConfig, 'data') ||
+        Object.prototype.hasOwnProperty.call(dataOrConfig, 'params') ||
+        Object.prototype.hasOwnProperty.call(dataOrConfig, 'headers') ||
+        Object.prototype.hasOwnProperty.call(dataOrConfig, 'timeout')
+      )
+    ) {
+      // Mantém o comportamento antigo: dados são fornecidos dentro de config.data
+      return this.request('delete', url, {}, dataOrConfig)
+    }
+
+    // Novo comportamento: segundo argumento é o corpo, terceiro é o config opcional
+    return this.request('delete', url, dataOrConfig, config)
   }
 }
 

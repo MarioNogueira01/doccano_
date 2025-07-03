@@ -91,7 +91,8 @@ class RelationTypeDistribution(LabelDistribution):
 
 
 class DatasetStatisticsAPI(APIView):
-    permission_classes = [IsAuthenticated & IsProjectAdmin]
+    # Permitimos a qualquer membro autenticado do projecto efectuar leituras.
+    permission_classes = [IsAuthenticated & (IsProjectAdmin | IsProjectStaffAndReadOnly)]
 
     def get(self, request, project_id):
         # Log all incoming parameters
@@ -442,7 +443,8 @@ class DatasetStatisticsAPI(APIView):
 
 
 class DatasetReportAPI(APIView):
-    permission_classes = [IsAuthenticated & IsProjectAdmin]
+    # PDF de relatório também disponível para qualquer membro.
+    permission_classes = [IsAuthenticated & (IsProjectAdmin | IsProjectStaffAndReadOnly)]
 
     def create_bar_chart(self, data, title, width=400, height=200):
         """Create a bar chart using reportlab's drawing capabilities."""

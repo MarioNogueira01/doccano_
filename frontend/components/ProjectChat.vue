@@ -2,7 +2,7 @@
   <div>
     <v-card outlined class="pa-2 mb-4">
       <v-card-title class="subtitle-2 grey--text text--darken-1">
-        Discussão do Projeto (Versão Atual)
+        Discussão do Projeto
       </v-card-title>
       <v-divider></v-divider>
       <div ref="chatWindow" class="chat-window">

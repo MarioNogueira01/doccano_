@@ -311,7 +311,7 @@ export default {
     },
     exportCSV () {
       try {
-        const delimiter = ';'
+        const delimiter = ','
         // Cabeçalho CSV
         const rows = [
           ['ID', 'Text', 'Status', 'Label', 'Percentage']

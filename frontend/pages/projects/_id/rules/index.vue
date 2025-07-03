@@ -38,7 +38,12 @@
         View Voted Rules
       </v-btn>
       <!-- Novo botão para abrir chat de discussão -->
-      <v-btn color="secondary" class="ml-2" @click="goToDiscussion">
+      <v-btn
+        v-if="projectStatus !== 'closed'"
+        color="secondary"
+        class="ml-2"
+        @click="goToDiscussion"
+      >
         Discussão
       </v-btn>
       <!-- Novo botão para visualizar histórico de discussões -->
@@ -145,6 +150,7 @@ export default {
       selectedDate: null,
       selectedTime: null,
       user: {},
+      projectStatus: 'open',
     };
   },
   computed: {
@@ -164,6 +170,13 @@ export default {
       this.user = member;
     } catch (error) {
       console.warn("Erro ao buscar o usuário:", error);
+    }
+
+    try {
+      const project = await this.$services.project.findById(this.projectId);
+      this.projectStatus = project.status || 'open';
+    } catch (e) {
+      console.warn('Não foi possível obter o estado do projecto:', e);
     }
   },
   mounted() {
