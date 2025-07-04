@@ -47,7 +47,9 @@ export default {
     async fetchVersions() {
       try {
         const res = await this.$services.project.listVersions(this.$route.params.id)
-        this.versions = Array.isArray(res) ? res : (res.versions || [])
+        // Filtra para exibir apenas versões que já foram fechadas
+        const versionsData = Array.isArray(res) ? res : (res.versions || [])
+        this.versions = versionsData.filter(v => v.status === 'closed')
         if (this.versions.length) {
           this.selectedVersionId = this.versions[0].id
         }
