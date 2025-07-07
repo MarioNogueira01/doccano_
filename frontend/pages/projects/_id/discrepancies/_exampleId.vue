@@ -82,9 +82,10 @@
               hide-details
               outlined
               class="flex-grow-1"
+              :disabled="isReadOnly"
               @keyup.enter="sendComment"
             />
-            <v-btn icon :disabled="!newComment" @click="sendComment">
+            <v-btn icon :disabled="!newComment || isReadOnly" @click="sendComment">
               <v-icon>mdi-send</v-icon>
             </v-btn>
           </v-card-actions>
@@ -129,7 +130,8 @@ export default {
         userColorMap: {},
         annotatorOptions: [],
         selectedAnnotator: null,
-        selectedVersion: null
+        selectedVersion: null,
+        currentVersion: null
       }
     } catch (e) {
       error({ statusCode: 404, message: 'Exemplo não encontrado' })
@@ -137,6 +139,15 @@ export default {
   },
   computed: {
     ...mapGetters('auth', ['getUsername']),
+    // O chat fica apenas para leitura quando a versão seleccionada
+    // é diferente da versão actual do projecto
+    isReadOnly() {
+      return (
+        this.selectedVersion !== null &&
+        this.currentVersion !== null &&
+        this.selectedVersion !== this.currentVersion
+      )
+    },
     filteredComments() {
       if (!this.selectedAnnotator || this.selectedAnnotator === 'Todos') {
         return this.comments
@@ -146,7 +157,9 @@ export default {
   },
   mounted() {
     this.selectedVersion = this.$route.query.version ? Number(this.$route.query.version) : null;
-    this.fetchComments()
+    // Obter a versão actual do projecto
+    this.fetchCurrentVersion();
+    this.fetchComments();
   },
   methods: {
     async fetchComments() {
@@ -177,10 +190,20 @@ export default {
         this.dbErrorVisible = true
       }
     },
+    async fetchCurrentVersion() {
+      try {
+        const url = `/projects/${this.projectId}/versions`;
+        const resp = await ApiService.get(url);
+        this.currentVersion = resp.data.project?.current_version ?? null;
+      } catch (e) {
+        console.error('Falha ao obter versão actual do projecto', e);
+      }
+    },
     formatTime(iso) {
       return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     },
     async sendComment() {
+      if (this.isReadOnly) return
       if (!this.newComment) return
       try {
         const newComment = await this.$repositories.comment.create(
