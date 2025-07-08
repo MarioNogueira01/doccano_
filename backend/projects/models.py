@@ -440,3 +440,61 @@ class ProjectDiscussionMessage(models.Model):
     def __str__(self):
         return f"Message {self.id} (v{self.version.version}) from {self.created_by}"
 
+
+class DiscussionThread(models.Model):
+    """Tópico de discussão relacionado a um projecto e versão."""
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="discussion_threads",
+    )
+    # versão a que a discussão pertence; null enquanto o projecto estiver aberto
+    version = models.ForeignKey(
+        'Version',
+        on_delete=models.CASCADE,
+        related_name='discussion_threads',
+        null=True,
+        blank=True,
+    )
+    title = models.CharField(max_length=255)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    closed = models.BooleanField(default=False)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Discussion Thread"
+        verbose_name_plural = "Discussion Threads"
+
+    def __str__(self):
+        return f"{self.title} (Project {self.project_id})"
+
+
+class DiscussionThreadMessage(models.Model):
+    """Mensagens dentro de um thread de discussão."""
+    thread = models.ForeignKey(
+        DiscussionThread,
+        on_delete=models.CASCADE,
+        related_name='messages',
+    )
+    message = models.TextField()
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = "Discussion Thread Message"
+        verbose_name_plural = "Discussion Thread Messages"
+
+    def __str__(self):
+        return f"Msg by {self.created_by} at {self.created_at}"
+

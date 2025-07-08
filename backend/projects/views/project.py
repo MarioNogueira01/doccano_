@@ -276,6 +276,13 @@ class CloseProject(APIView):
             last_version.status = 'closed'
             last_version.end_date = timezone.now()
             last_version.save()
+            # Fecha todas as discussões em aberto associando-as à versão agora fechada
+            from projects.models import DiscussionThread
+            DiscussionThread.objects.filter(project=project, closed=False).update(
+                closed=True,
+                closed_at=timezone.now(),
+                version=last_version
+            )
         serializer = ProjectPolymorphicSerializer(project)
         return Response(serializer.data)
 

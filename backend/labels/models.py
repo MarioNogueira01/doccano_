@@ -39,7 +39,7 @@ class Category(Label):
     label = models.ForeignKey(to=CategoryType, on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ("example", "user", "label")
+        unique_together = ("example", "user", "label", "project_version")
 
 
 class Span(Label):
@@ -104,7 +104,7 @@ class TextLabel(Label):
         return self.text == other.text
 
     class Meta:
-        unique_together = ("example", "user", "text")
+        unique_together = ("example", "user", "text", "project_version")
 
 
 class Relation(Label):

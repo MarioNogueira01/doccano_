@@ -392,16 +392,22 @@ export default Vue.extend({
 
   methods: {
     async checkPerspectiveAnswers() {
+      // Se estivermos numa versão > 1, não obrigamos novamente a responder perspetivas
+      if (this.project && this.project.projectVersion > 1) {
+        this.hasUnansweredQuestions = false
+        this.unansweredQuestionsMessage = ''
+        return
+      }
       try {
         const perspectiveGroups = await this.$services.perspective.listPerspectiveGroups(
           this.projectId
         )
         const allQuestions = (perspectiveGroups.results || []).flatMap((group) => group.questions)
 
+        // Se não existir nenhuma pergunta de perspetiva, não bloquear
         if (allQuestions.length === 0) {
-          this.hasUnansweredQuestions = true
-          this.unansweredQuestionsMessage =
-            'No perspective questions have been created. Please create one in the Perspectives tab.'
+          this.hasUnansweredQuestions = false
+          this.unansweredQuestionsMessage = ''
           return
         }
 

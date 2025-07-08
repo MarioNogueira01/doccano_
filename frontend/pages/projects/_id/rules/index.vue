@@ -42,9 +42,9 @@
         v-if="projectStatus !== 'closed'"
         color="secondary"
         class="ml-2"
-        @click="goToDiscussion"
+        @click="goToDiscussoes"
       >
-        Discussão
+        Discussões
       </v-btn>
       <!-- Novo botão para visualizar histórico de discussões -->
       <v-btn color="info" class="ml-2" @click="goToDiscussionHistory">
@@ -358,8 +358,8 @@ export default {
         path: `/projects/${this.projectId}/rules/votedResults`
       });
     },
-    goToDiscussion() {
-      this.$router.push({ path: `/projects/${this.projectId}/rules/discussion` })
+    goToDiscussoes() {
+      this.$router.push({ path: `/projects/${this.projectId}/rules/discussoes` })
     },
     goToDiscussionHistory() {
       this.$router.push({ path: `/projects/${this.projectId}/rules/discussion-history` })

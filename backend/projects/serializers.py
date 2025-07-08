@@ -26,6 +26,8 @@ from .models import (
     RuleDiscussionMessage,
     Version,
     ProjectDiscussionMessage,
+    DiscussionThread,
+    DiscussionThreadMessage,
 )
 
 
@@ -327,4 +329,22 @@ class VersionSerializer(serializers.ModelSerializer):
             return f"{hours}h {minutes}m"
         else:
             return f"{minutes}m"
+
+
+class DiscussionThreadSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+
+    class Meta:
+        model = DiscussionThread  # type: ignore
+        fields = ['id', 'title', 'created_by_username', 'created_at', 'closed', 'version']
+        read_only_fields = ['id', 'created_by_username', 'created_at', 'closed', 'version']
+
+
+class DiscussionThreadMessageSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='created_by.username', read_only=True)
+
+    class Meta:
+        model = DiscussionThreadMessage  # type: ignore
+        fields = ['id', 'message', 'username', 'created_at']
+        read_only_fields = ['id', 'username', 'created_at']
 

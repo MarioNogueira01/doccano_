@@ -34,9 +34,9 @@ class LabelManager(Manager):
 
     def get_labels(self, label, project):
         if project.collaborative_annotation:
-            return self.filter(example=label.example)
+            return self.filter(example=label.example, project_version=label.project_version)
         else:
-            return self.filter(example=label.example, user=label.user)
+            return self.filter(example=label.example, user=label.user, project_version=label.project_version)
 
     def can_annotate(self, label, project) -> bool:
         raise NotImplementedError("Please implement this method in the subclass")

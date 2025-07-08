@@ -27,6 +27,7 @@ from .views.votacoes import (
 )
 
 from labels.views import ProjectLabelsAPI
+from .views.discussion_thread import DiscussionThreadListCreateView, DiscussionThreadMessageView
 
 # Create router for ViewSets
 router = DefaultRouter()
@@ -97,4 +98,7 @@ urlpatterns = [
     path("projects/<int:project_id>/discrepancies/postdiscrepancies", ToSubmitQuestionsCreateView.as_view(), name="create_discrepancy"),
     path("projects/<int:project_id>/discrepancies/<str:question>/update-status", UpdateDiscrepancyStatusView.as_view(), name="update_discrepancy_status"
     ),
+
+    path("projects/<int:project_id>/discussion-threads", DiscussionThreadListCreateView.as_view(), name="discussion_thread_list"),
+    path("projects/<int:project_id>/discussion-threads/<int:thread_id>/messages", DiscussionThreadMessageView.as_view(), name="discussion_thread_messages"),
 ]
